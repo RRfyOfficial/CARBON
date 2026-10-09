@@ -62,10 +62,23 @@ do_pull() {
 }
 
 pick_simulator() {
-  # First available iPhone simulator name, e.g. "iPhone 17".
-  xcrun simctl list devices available \
-    | grep -m1 -oE 'iPhone [^()]+' \
-    | sed 's/[[:space:]]*$//'
+  # First available iPhone simulator on an iOS 26+ runtime (CARBON's minimum).
+  # Prints "UDID|Name|iOS version", e.g. "1A2B...|iPhone 17|26.3".
+  # Section headers look like "-- iOS 26.3 --". Device lines look like
+  # "    iPhone 17 Pro (1A2B3C4D-...) (Shutdown)".
+  xcrun simctl list devices available | awk '
+    /^-- iOS / { split($3, v, "."); ok = (v[1] + 0 >= 26); ver = $3; next }
+    /^-- /     { ok = 0; next }
+    ok && /iPhone/ {
+      if (match($0, /\([0-9A-F-]+\)/)) {
+        udid = substr($0, RSTART + 1, RLENGTH - 2)
+        name = $0
+        sub(/^[ \t]+/, "", name)
+        sub(/ \(.*$/, "", name)
+        print udid "|" name "|" ver
+        exit
+      }
+    }'
 }
 
 # Everything runs inside main(), so bash has read the whole script before
@@ -82,7 +95,12 @@ case "$cmd" in
     git status --short || true
     say "iOS simulator runtimes:"
     xcrun simctl list runtimes | grep -i ios || echo "(none)"
-    say "First available iPhone simulator: $(pick_simulator || echo none)"
+    SIM="$(pick_simulator || true)"
+    if [ -n "$SIM" ]; then
+      say "Test simulator (iOS 26+): $(echo "$SIM" | cut -d'|' -f2) on iOS $(echo "$SIM" | cut -d'|' -f3)"
+    else
+      say "Test simulator (iOS 26+): NONE. Create one in Xcode → Window → Devices and Simulators → Simulators → +"
+    fi
     ;;
 
   pull)
@@ -114,14 +132,15 @@ case "$cmd" in
     check_project
     SIM="$(pick_simulator || true)"
     if [ -z "$SIM" ]; then
-      say "No iPhone simulator available. Run: mac.sh doctor"
+      say "No iPhone simulator on iOS 26+. Run: mac.sh doctor"
       exit 1
     fi
-    say "Testing $SCHEME on simulator: $SIM"
+    SIM_UDID="$(echo "$SIM" | cut -d'|' -f1)"
+    say "Testing $SCHEME on $(echo "$SIM" | cut -d'|' -f2) (iOS $(echo "$SIM" | cut -d'|' -f3))"
     if xcodebuild \
         -project "$PROJECT" \
         -scheme "$SCHEME" \
-        -destination "platform=iOS Simulator,name=$SIM" \
+        -destination "platform=iOS Simulator,id=$SIM_UDID" \
         -derivedDataPath "$DERIVED" \
         -quiet \
         test; then

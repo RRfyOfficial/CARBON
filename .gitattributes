@@ -1,0 +1,28 @@
+# CARBON line endings.
+# Code is written on Windows but shell scripts and Xcode files run on macOS.
+# Windows-style CRLF endings break bash scripts on the Mac ("bad interpreter").
+# So: everything is LF, except files that only Windows tools read.
+
+* text=auto eol=lf
+
+# Windows-only files keep CRLF
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+*.ps1   text eol=crlf
+*.sln   text eol=crlf
+
+# Xcode project files must stay LF
+*.pbxproj    text eol=lf
+*.xcscheme   text eol=lf
+
+# Binary assets, never touched
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.heic   binary
+*.mp4    binary
+*.ttf    binary
+*.otf    binary
+*.woff2  binary
+*.ico    binary
+*.pdf    binary

@@ -1,0 +1,33 @@
+# ---- Secrets and local config (never commit) ----
+.env.local
+ios/.env.local
+*.pem
+*.p12
+*.mobileprovision
+
+# ---- macOS ----
+.DS_Store
+
+# ---- Xcode ----
+ios/build/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+# Keep Package.resolved committed (it pins the Meta toolkit version)
+
+# ---- Windows / .NET ----
+bin/
+obj/
+.vs/
+*.user
+*.suo
+publish/
+
+# ---- Python dev tools ----
+__pycache__/
+.venv/
+*.pyc
+
+# ---- Editors ----
+.vscode/*
+!.vscode/extensions.json

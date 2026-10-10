@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "carbon/clip.v1.json",
+  "title": "CARBON clip (phone to laptop)",
+  "type": "object",
+  "required": ["v", "type", "id", "ts", "mode", "text"],
+  "properties": {
+    "v": { "const": 1 },
+    "type": { "const": "clip" },
+    "id": { "type": "string", "description": "Scan UUID; the laptop pastes each id at most once" },
+    "ts": { "type": "integer", "description": "Unix milliseconds" },
+    "mode": { "enum": ["clipboard", "autopaste"] },
+    "text": { "type": "string", "maxLength": 32000 },
+    "html": { "type": ["string", "null"], "description": "null until M4" }
+  }
+}

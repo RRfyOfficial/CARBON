@@ -1,6 +1,10 @@
 # M0 report: spike test results
 
-> **Status: all decided except U8.** Hardware sessions on 2026-10-09 and 2026-10-10. Russell approved every proposed decision on 2026-10-10. They're recorded in the SPEC decision log and the affected SPEC sections. Wi-Fi check: Xcode offers neither Hotspot nor Access Wi-Fi Information to a free Personal Team, so photos stay on Bluetooth. **Only U8 (laptop Bluetooth peripheral) is left.** Spike code lives on the `spike/m0` branch (the "CARBON Lab" app).
+> **Status: M0 complete (2026-10-10).**
+> - Every question has a recorded answer. U8 has a fallback plan for M2.
+> - Russell approved every proposed decision. They're recorded in the SPEC decision log and the affected SPEC sections.
+> - Wi-Fi check: Xcode offers neither Hotspot nor Access Wi-Fi Information to a free Personal Team, so photos stay on Bluetooth.
+> - Spike code lives on the `spike/m0` branch (the "CARBON Lab" app, and `tools/spike/u8check`). It isn't merged.
 > SPEC Section 1.4 lists the questions. Section 8.3 defines the capture benchmark.
 
 ## Summary
@@ -14,7 +18,7 @@
 | U5 | Can iOS write the clipboard while CARBON is in the background? | **No.** The write is silently dropped | ✅ Answered |
 | U6 | Can a display `Image` load a local file or data URI? | **`UIImage` and `data:` URIs yes, `file://` no** (`https://` also works) | ✅ Answered |
 | U7 | Does app audio play through the glasses speakers? | **Yes**, over A2DP ("Meta RB Display"), mixed with other audio | ✅ Answered |
-| U8 | Can the Zephyrus act as a BLE peripheral? | **Flag says yes, but GATT advertising fails** | 🟡 Partial |
+| U8 | Can the Zephyrus act as a BLE peripheral? | **Not as tested.** The flag says yes, plain advertising works, but GATT advertising always fails from an unpackaged app. Fallback order set for M2 | ✅ Answered (fallback for M2) |
 | U9 | Can CARBON restart a session after the hinges reopen? | **Yes, automatically.** Lab screen back 2.1 s after the glasses reconnect, without touching the phone | ✅ Answered |
 | U10 | Does the first pinch on a sleeping display deliver `select`? | **Moot.** The display never slept during a session (4+ min with no app sends) | ✅ Answered (as observed) |
 | Bench | Capture configuration | **None passes both targets.** Russell chose fast scan LARGE/MEDIUM + detail scan LARGE/HIGH, and a p95 ≤ 8 s promise | ✅ Decided |
@@ -89,7 +93,7 @@ BirdSpotter warns that each photo transfer knocks the display and inputs offline
 - With the lab screen up and no app sends, the display stayed on for 4+ minutes. The docs say it dims at 20 s and sleeps at 25 s. So the "first pinch only wakes" case never came up.
 - Keep the SPEC rule "re-send the current screen on wake" anyway (it's cheap). Measure battery drain in M1, since a display that never sleeps costs power.
 
-## U8: Zephyrus as a BLE peripheral: **partial**
+## U8: Zephyrus as a BLE peripheral: **not as tested; fallback for M2**
 
 Tested with a throwaway .NET 8 console program (unpackaged, like the planned companion) on Windows 11 build 26200, with the Intel Wireless Bluetooth adapter on driver 24.40.10.3.
 
@@ -100,14 +104,19 @@ Tested with a throwaway .NET 8 console program (unpackaged, like the planned com
 | `GattServiceProvider` advertising, connectable + discoverable | ❌ `Aborted` after about 28 ms (error `Success`) |
 | `GattServiceProvider`, connectable only / discoverable only | ❌ stays `Created`, never starts |
 | Same, with Phone Link and Cross Device services stopped | ❌ unchanged |
+| Same, after switching Bluetooth off and on (2026-10-10) | ❌ unchanged |
+| Same, with every other Bluetooth device disconnected and another radio restart | ❌ unchanged |
 
-Microsoft describes `Aborted` as *"unable to submit the advertisement request, or canceled due to resource contention."* SimpleBLE's Windows peripheral support was validated on a USB dongle and lists adapter/driver resource limits as a known failure mode.
+Microsoft describes `Aborted` as *"unable to submit the advertisement request, or canceled due to resource contention."* With nothing else connected, contention is ruled out. Two causes remain:
+- Windows restricts GATT-server advertising for unpackaged processes.
+- A limit in the Intel driver.
 
-**Next:**
-1. Switch Bluetooth off and on.
-2. Retry with the other Bluetooth devices disconnected (mouse, headphones, EEG headset).
-3. If it still fails, try either the same code with package identity, or a USB dongle.
-4. **Fallback** (SPEC 9.1): swap the roles. iOS background advertising limits make that harder, so prove or rule out the Windows peripheral role first.
+SimpleBLE's Windows peripheral support was validated on a USB dongle. The test program is on `spike/m0` at `tools/spike/u8check`.
+
+**Fallback order for M2** (try in order, stop at the first that works):
+1. Run the same code **with package identity**, as a packaged or sparse-packaged companion. If Windows only allows this for packaged apps, this fixes it at no cost.
+2. A **USB Bluetooth adapter** (hardware, roughly $10–15). Ask Russell first.
+3. **Swap the roles** (SPEC 9.1): the iPhone advertises, the laptop connects. The message layer is unchanged, but iOS limits background advertising, so reconnecting while CARBON is in the background needs care.
 
 ## Capture benchmark (preliminary)
 
@@ -231,9 +240,9 @@ Vision **does not output list bullets** at all: "•" never appears in its resul
 - One display `send()` took about 1.2 s (the CAPTURING frame). Others completed in tens of milliseconds. Keep sends small and rare during transfers.
 - Registration, the camera permission, and the `carbon://` callback all work in Developer Mode with empty `MetaAppID` / `ClientToken`.
 
-## Remaining M0 work
+## M0 checklist
 
-1. ~~Fixtures and the real benchmark~~: done 2026-10-10 (see "Slide benchmark").
-2. **At the iMac (2 min):** the Carbon target's Signing & Capabilities → + Capability. Is **Hotspot** offered to the Personal Team? This decides whether the Wi-Fi path (decision option D) is even possible.
-3. **U8 (laptop only):** Bluetooth off and on, retest, then retest with other devices disconnected.
-4. **Russell reads this report** and decides "Decisions needed" plus the proposed decisions (U2, U3, U5, U6, U9, deskew, bullets). They then go into the SPEC decision log.
+1. ✅ Fixtures and the real benchmark: done 2026-10-10 (see "Slide benchmark").
+2. ✅ Wi-Fi check: Hotspot and Access Wi-Fi Information aren't offered to a free Personal Team. Photos stay on Bluetooth.
+3. ✅ U8: retested after a radio restart and with all devices disconnected. Recorded, with an M2 fallback order.
+4. ✅ Russell reviewed the plain-language summary and approved every decision on 2026-10-10. Recorded in the SPEC decision log.

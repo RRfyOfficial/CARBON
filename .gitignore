@@ -1,6 +1,7 @@
 # ---- Secrets and local config (never commit) ----
 .env.local
 ios/.env.local
+ios/Config/Local.xcconfig
 *.pem
 *.p12
 *.mobileprovision

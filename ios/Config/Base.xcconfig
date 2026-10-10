@@ -1,0 +1,13 @@
+// CARBON · Base.xcconfig
+// The project's Debug and Release configurations are based on this file,
+// so every target inherits these settings.
+//
+// Each builder's identity lives in Local.xcconfig next to this file
+// (gitignored). Copy Local.xcconfig.example to Local.xcconfig and fill it in.
+
+// Fallbacks so a fresh clone still compiles for the simulator without Local.xcconfig.
+// Signing for a real iPhone needs both values set in Local.xcconfig.
+CARBON_BUNDLE_ID = com.example.Carbon
+DEVELOPMENT_TEAM =
+
+#include? "Local.xcconfig"

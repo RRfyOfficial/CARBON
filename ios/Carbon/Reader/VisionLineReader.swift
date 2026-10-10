@@ -21,26 +21,34 @@ nonisolated struct VisionLineReader: TextReader {
 
     /// Smallest text Vision looks for, as a fraction of image height (Vision's default is 1/32).
     var minimumTextHeight: Float = 1.0 / 32
-    /// Enlarge the photo before recognition. Slide text from a seat can be only 13-15 px tall.
+    /// Enlarge the photo (or crop) before recognition. Slide text from a seat can be only 13-15 px tall.
     var upscale: CGFloat = 1
     var languageCorrection = true
     var engine: Engine = .modern
+    /// Read only this region, normalized to the upright image with a top-left origin. Lines come
+    /// back in full-image pixels either way.
+    var crop: CGRect?
 
     func read(_ photo: Data) async throws -> ReadText {
         try await readWithStats(photo).text
     }
 
     func readWithStats(_ photo: Data) async throws -> (text: ReadText, stats: Stats) {
-        let output = try await Self.recognize(photo, options: self)
+        let output = try await recognizeLines(photo)
         var text = ReadingOrder.blocks(from: output.lines)
-        text.cutEdges = ReadingOrder.cutEdges(of: output.lines, imageHeight: output.imageHeight)
+        text.cutEdges = ReadingOrder.cutEdges(of: output.lines, imageHeight: output.imageSize.height)
         return (text, output.stats)
     }
 
-    private struct Output {
+    struct Output: Sendable {
         var lines: [RecognizedLine]
-        var imageHeight: CGFloat
+        var imageSize: CGSize
         var stats: Stats
+    }
+
+    /// The raw lines in full-image pixels, top-left origin, plus the full upright image size.
+    func recognizeLines(_ photo: Data) async throws -> Output {
+        try await Self.recognize(photo, options: self)
     }
 
     /// Decoding and recognition run off the main actor. Line corners are in pixels of the
@@ -57,13 +65,34 @@ nonisolated struct VisionLineReader: TextReader {
         let properties = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [String: Any]
         let rawOrientation = (properties?[kCGImagePropertyOrientation as String] as? NSNumber)?.uint32Value ?? 1
         let orientation = CGImagePropertyOrientation(rawValue: rawOrientation) ?? .up
-        let image = options.upscale > 1 ? (scaled(decoded, by: options.upscale) ?? decoded) : decoded
+        let fullWidth = CGFloat(decoded.width), fullHeight = CGFloat(decoded.height)
 
-        // Vision's points are normalized to the upright image with a bottom-left origin.
+        // Cropping works in the stored pixel grid, so it's only applied to upright photos
+        // (the glasses deliver .up); anything else is read whole.
+        var region = CGRect(x: 0, y: 0, width: fullWidth, height: fullHeight)
+        var source = decoded
+        if let crop = options.crop, orientation == .up {
+            let wanted = CGRect(x: crop.minX * fullWidth, y: crop.minY * fullHeight,
+                                width: crop.width * fullWidth, height: crop.height * fullHeight).integral
+                .intersection(region)
+            if !wanted.isEmpty, let cropped = decoded.cropping(to: wanted) {
+                region = wanted
+                source = cropped
+            }
+        }
+        let image = options.upscale > 1 ? (scaled(source, by: options.upscale) ?? source) : source
+        let scale = CGFloat(image.width) / region.width
+
+        // Vision's points are normalized to the (cropped, scaled) upright image with a bottom-left
+        // origin. Map them back to full-image pixels with a top-left origin.
         let quarterTurn: Set<CGImagePropertyOrientation> = [.left, .leftMirrored, .right, .rightMirrored]
         let width = CGFloat(quarterTurn.contains(orientation) ? image.height : image.width)
         let height = CGFloat(quarterTurn.contains(orientation) ? image.width : image.height)
-        func pixel(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x * width, y: (1 - y) * height) }
+        func pixel(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: region.minX + x * width / scale, y: region.minY + (1 - y) * height / scale)
+        }
+        let uprightSize = quarterTurn.contains(orientation) ? CGSize(width: fullHeight, height: fullWidth)
+                                                             : CGSize(width: fullWidth, height: fullHeight)
 
         var stats = Stats()
         var lines: [RecognizedLine] = []
@@ -102,7 +131,21 @@ nonisolated struct VisionLineReader: TextReader {
                 lines.append(RecognizedLine(text: text, corners: corners.map { pixel($0.x, $0.y) }))
             }
         }
-        return Output(lines: lines, imageHeight: height, stats: stats)
+        return Output(lines: lines, imageSize: uprightSize, stats: stats)
+    }
+
+    /// The region around the given lines, padded by `margin` of its own size on every side,
+    /// normalized to the image (top-left origin). nil when there are no lines.
+    static func textRegion(of lines: [RecognizedLine], in size: CGSize, margin: CGFloat = 0.25) -> CGRect? {
+        let points = lines.flatMap(\.corners)
+        guard let minX = points.map(\.x).min(), let maxX = points.map(\.x).max(),
+              let minY = points.map(\.y).min(), let maxY = points.map(\.y).max(),
+              size.width > 0, size.height > 0 else { return nil }
+        let box = CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+            .insetBy(dx: -(maxX - minX) * margin, dy: -(maxY - minY) * margin)
+        let normalized = CGRect(x: box.minX / size.width, y: box.minY / size.height,
+                                width: box.width / size.width, height: box.height / size.height)
+        return normalized.intersection(CGRect(x: 0, y: 0, width: 1, height: 1))
     }
 
     private static func scaled(_ image: CGImage, by factor: CGFloat) -> CGImage? {

@@ -10,6 +10,12 @@ final class GlassesRouter {
         case scan
         case retry
         case back
+        case history
+        case settings
+        case newer
+        case older
+        case resend
+        case setting(GlassesScreen.SettingRow)
     }
 
     private(set) var screen: GlassesScreen = .main(GlassesScreen.Main())
@@ -80,7 +86,7 @@ final class GlassesRouter {
     private func send(_ screen: GlassesScreen, to display: Display) async throws {
         switch screen {
         case .main(let model):
-            try await display.send(GlassesScreens.main(model, onScan: action(.scan)))
+            try await display.send(GlassesScreens.main(model, actions: actions))
         case .scanning(let model):
             try await display.send(GlassesScreens.scanning(model))
         case .done(let model, let filled):
@@ -89,7 +95,23 @@ final class GlassesRouter {
             try await display.send(GlassesScreens.error(code, elapsed: elapsed, onRetry: action(.retry), onBack: action(.back)))
         case .linked(let name, let filled):
             try await display.send(GlassesScreens.linked(name, filled: filled))
+        case .history(let model):
+            try await display.send(GlassesScreens.history(model, actions: actions))
+        case .settings(let model):
+            try await display.send(GlassesScreens.settings(model, actions: actions))
+        case .pairInfo:
+            try await display.send(GlassesScreens.pairInfo(actions: actions))
+        case .boot:
+            try await display.send(GlassesScreens.boot())
         }
+    }
+
+    private var actions: GlassesScreens.Actions {
+        GlassesScreens.Actions(
+            scan: action(.scan), history: action(.history), settings: action(.settings),
+            newer: action(.newer), older: action(.older), resend: action(.resend),
+            back: action(.back), retry: action(.retry),
+            setting: { [weak self] row in Task { @MainActor in self?.onAction?(.setting(row)) } })
     }
 
     private func action(_ action: Action) -> @Sendable () -> Void {

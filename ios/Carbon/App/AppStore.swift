@@ -4,6 +4,7 @@
 import Foundation
 import Observation
 import UIKit
+import MWDATDisplay
 import MWDATInputs
 
 @Observable
@@ -20,6 +21,8 @@ final class AppStore {
     @ObservationIgnored private let laptopTarget: LaptopTarget
     @ObservationIgnored private var scanning = GlassesScreen.Scanning()
     @ObservationIgnored private var lastTransferSend = ContinuousClock.now
+    /// The scan HISTORY shows on the glasses; 0 is the newest.
+    @ObservationIgnored private var historyIndex = 0
 
     private(set) var isScanning = false
     private(set) var cameraHintSeen: Bool {
@@ -34,16 +37,36 @@ final class AppStore {
     var onboardingDone: Bool {
         didSet { UserDefaults.standard.set(onboardingDone, forKey: Keys.onboardingDone) }
     }
-    /// TARGET (SPEC 6.5): the paired laptop when true and one is paired, otherwise the phone.
+    // Settings (SPEC 6.5): one copy here, shown on the glasses and the phone, saved across restarts.
+    /// TARGET: the paired laptop when true and one is paired, otherwise the phone.
     var targetIsLaptop: Bool {
         didSet {
             UserDefaults.standard.set(targetIsLaptop, forKey: Keys.targetIsLaptop)
-            refreshMain()
+            refreshGlasses()
         }
     }
-    /// PASTE (SPEC 6.5), laptop only.
+    /// PASTE, laptop only.
     var pasteMode: PasteMode {
-        didSet { UserDefaults.standard.set(pasteMode.rawValue, forKey: Keys.pasteMode) }
+        didSet {
+            UserDefaults.standard.set(pasteMode.rawValue, forKey: Keys.pasteMode)
+            refreshGlasses()
+        }
+    }
+    /// LINE BREAKS: keep the reader's line breaks (ON) or join each block into one line.
+    var lineBreaks: Bool {
+        didSet {
+            UserDefaults.standard.set(lineBreaks, forKey: Keys.lineBreaks)
+            pipeline.lineBreaks = lineBreaks
+            refreshGlasses()
+        }
+    }
+    /// SOUND: the ticks. With it OFF, nothing plays.
+    var sound: Bool {
+        didSet {
+            UserDefaults.standard.set(sound, forKey: Keys.sound)
+            ticks.isEnabled = sound
+            refreshGlasses()
+        }
     }
 
     private enum Keys {
@@ -52,6 +75,8 @@ final class AppStore {
         static let onboardingDone = "onboardingDone"
         static let targetIsLaptop = "targetIsLaptop"
         static let pasteMode = "pasteMode"
+        static let lineBreaks = "lineBreaks"
+        static let sound = "sound"
     }
 
     init() {
@@ -79,9 +104,13 @@ final class AppStore {
         self.onboardingDone = defaults.bool(forKey: Keys.onboardingDone)
         self.targetIsLaptop = defaults.bool(forKey: Keys.targetIsLaptop)
         self.pasteMode = defaults.string(forKey: Keys.pasteMode).flatMap(PasteMode.init(rawValue:)) ?? .clipboard
+        self.lineBreaks = defaults.object(forKey: Keys.lineBreaks) as? Bool ?? true
+        self.sound = defaults.object(forKey: Keys.sound) as? Bool ?? true
         pipeline.keepCaptures = keepCaptures
+        pipeline.lineBreaks = lineBreaks
+        ticks.isEnabled = sound
 
-        link.onStatusChanged = { [weak self] in self?.refreshMain() }
+        link.onStatusChanged = { [weak self] in self?.refreshGlasses() }
         link.onNewLaptop = { [weak self] laptop in self?.newLaptopLinked(laptop) }
 
         // Keep the screen awake while a session is on and CARBON is on screen, so the phone doesn't
@@ -89,7 +118,7 @@ final class AppStore {
         session.onPhaseChanged = { phase in
             UIApplication.shared.isIdleTimerDisabled = phase != .stopped
         }
-        session.onDisplayReady = { [weak self] display in self?.router.attach(display) }
+        session.onDisplayReady = { [weak self] display in self?.displayReady(display) }
         session.onDisplayGone = { [weak self] in self?.router.detach() }
         session.onInput = { [weak self] event in self?.handle(event) }
         router.onAction = { [weak self] action in self?.handle(action) }
@@ -177,8 +206,13 @@ final class AppStore {
         }
     }
 
-    private func refreshMain() {
-        if router.isOnMain { router.show(.main(mainModel())) }
+    /// Re-sends MAIN or SETTINGS when what they show changed, so the glasses and the phone stay in sync.
+    private func refreshGlasses() {
+        switch router.screen {
+        case .main: router.show(.main(mainModel()))
+        case .settings: router.show(.settings(settingsModel()))
+        default: break
+        }
     }
 
     // MARK: - Triggers
@@ -204,7 +238,8 @@ final class AppStore {
             }
             scan(.fast)
         case let .capture(press, _, _) where press == .hold:
-            log.add("camera button hold: the detail scan arrives in M3")
+            // Detail scan (SPEC 8.2): LARGE/HIGH, slower, for tables and fine print.
+            scan(.detail)
         case .select:
             if router.isOnMain { scan(.fast) }
         default:
@@ -218,6 +253,37 @@ final class AppStore {
             scan(.fast)
         case .back:
             router.show(.main(mainModel()))
+        case .history:
+            historyIndex = 0
+            showHistory()
+        case .newer:
+            // NEWER on the newest scan returns to MAIN (SPEC 6.2).
+            if historyIndex == 0 {
+                router.show(.main(mainModel()))
+            } else {
+                historyIndex -= 1
+                showHistory()
+            }
+        case .older:
+            historyIndex = min(historyIndex + 1, max(history.scans.count - 1, 0))
+            showHistory()
+        case .resend:
+            if historyIndex < history.scans.count { resend(history.scans[historyIndex], fromGlasses: true) }
+        case .settings:
+            router.show(.settings(settingsModel()))
+        case .setting(let row):
+            cycle(row)
+        }
+    }
+
+    /// The display (re)started: the wordmark for a moment, then whatever was showing (SPEC 7.4).
+    private func displayReady(_ display: Display) {
+        router.attach(display)
+        guard router.isOnMain else { return }
+        router.show(.boot)
+        Task {
+            try? await Task.sleep(for: .milliseconds(1_200))
+            if case .boot = router.screen { router.show(.main(mainModel())) }
         }
     }
 
@@ -251,39 +317,124 @@ final class AppStore {
         case .success(let scan):
             history.add(scan)
             fixtures.record(scan)
-            switch scan.delivery {
-            case .delivered(let how):
-                let done = GlassesScreen.Done(
-                    chars: scan.charCount, targetName: toLaptop ? target.displayName : "PHONE",
-                    how: !toLaptop ? "ON PHONE CLIPBOARD" : (how == .pasted ? "PASTED" : "ON CLIPBOARD"),
-                    elapsed: elapsed, warning: CutEdge.advice(for: scan.cutEdges))
-                await router.showDoneWithTick(done)
-                ticks.play(.done)
-                // Linger a little longer when there's advice to read.
-                await returnToMain(after: .milliseconds(done.warning == nil ? 1_500 : 3_000))
-            case .awaitingAppOpen:
-                ticks.play(.done)
-                router.show(.error(.openToCopy, elapsed: elapsed))
-                await returnToMain(after: .milliseconds(2_500))
-            case .notDelivered, .failed(.version):
-                // The laptop didn't take it; the phone clipboard has it (or will when CARBON opens).
-                let code: ScanError = scan.delivery == .failed(.version) ? .version
-                    : (scan.phoneCopyPending == true ? .notDeliveredOpenToCopy : .notDelivered)
-                ticks.play(.error)
-                router.show(.error(code, elapsed: elapsed))
-                await returnToMain(after: .milliseconds(3_000))
-            case .failed(let code):
-                // PASTE_BLOCKED / AUTOPASTE_OFF: the text is on the laptop clipboard, just not pasted.
-                ticks.play(.done)
-                router.show(.error(code, elapsed: elapsed))
-                await returnToMain(after: .milliseconds(3_000))
-            }
+            await showOutcome(scan, toLaptop: toLaptop, targetName: target.displayName, elapsed: elapsed)
+            await returnToMain(after: .zero)
         case .failure(let error):
             ticks.play(.error)
             router.show(.error(error, elapsed: elapsed))
         }
         isScanning = false
         session.reviveIfNeeded()
+    }
+
+    /// DONE, or the screen for where the text ended up, with tick and sound; returns once it has
+    /// been on screen long enough to read. Shared by fresh scans and RESEND (SPEC 6.4).
+    private func showOutcome(_ scan: Scan, toLaptop: Bool, targetName: String, elapsed: Double) async {
+        switch scan.delivery {
+        case .delivered(let how):
+            let done = GlassesScreen.Done(
+                chars: scan.charCount, targetName: toLaptop ? targetName : "PHONE",
+                how: !toLaptop ? "ON PHONE CLIPBOARD" : (how == .pasted ? "PASTED" : "ON CLIPBOARD"),
+                elapsed: elapsed, warning: CutEdge.advice(for: scan.cutEdges))
+            await router.showDoneWithTick(done)
+            ticks.play(.done)
+            // Linger a little longer when there's advice to read.
+            try? await Task.sleep(for: .milliseconds(done.warning == nil ? 1_500 : 3_000))
+        case .awaitingAppOpen:
+            ticks.play(.done)
+            router.show(.error(.openToCopy, elapsed: elapsed))
+            try? await Task.sleep(for: .milliseconds(2_500))
+        case .notDelivered, .failed(.version):
+            // The laptop didn't take it; the phone clipboard has it (or will when CARBON opens).
+            let code: ScanError = scan.delivery == .failed(.version) ? .version
+                : (scan.phoneCopyPending == true ? .notDeliveredOpenToCopy : .notDelivered)
+            ticks.play(.error)
+            router.show(.error(code, elapsed: elapsed))
+            try? await Task.sleep(for: .milliseconds(3_000))
+        case .failed(let code):
+            // PASTE_BLOCKED / AUTOPASTE_OFF: the text is on the laptop clipboard, just not pasted.
+            ticks.play(.done)
+            router.show(.error(code, elapsed: elapsed))
+            try? await Task.sleep(for: .milliseconds(3_000))
+        }
+    }
+
+    // MARK: - History and settings on the glasses (SPEC 6.2-6.5)
+
+    private func showHistory() {
+        guard !history.scans.isEmpty else {
+            router.show(.main(mainModel()))
+            return
+        }
+        historyIndex = min(historyIndex, history.scans.count - 1)
+        let scan = history.scans[historyIndex]
+        var meta = scan.createdAt.formatted(date: .omitted, time: .shortened)
+        switch scan.target {
+        case .phone: meta += " · PHONE"
+        case .laptop: meta += " · \(laptopTarget.displayName) · \(scan.pasteMode == .autopaste ? "AUTOPASTE" : "CLIPBOARD")"
+        }
+        if scan.delivery == .notDelivered { meta += " · NOT DELIVERED" }
+        router.show(.history(GlassesScreen.History(
+            index: historyIndex, count: history.scans.count, meta: meta,
+            lines: Self.preview(scan.text, lines: 8, width: 44))))
+    }
+
+    /// RESEND (SPEC 6.4), from the glasses' HISTORY or the phone's: the saved text to the current
+    /// target with the current paste mode, exactly once, with the same DONE tick and sound as a fresh
+    /// scan. From the glasses it then goes back to the same history entry.
+    func resend(_ scan: Scan, fromGlasses: Bool = false) {
+        guard !isScanning else { return }
+        isScanning = true
+        Task {
+            let startedAt = ContinuousClock.now
+            let toLaptop = usesLaptop
+            let target = self.target
+            let mode = toLaptop ? pasteMode : PasteMode.clipboard
+            ticks.play(.start)
+            let (delivery, phoneCopyPending) = await pipeline.deliver(scan.text, id: UUID(), to: target, mode: mode)
+            log.add("resend · \(scan.charCount) chars · \(target.displayName) · \(delivery)")
+            history.update(scan.id) {
+                $0.target = target.id
+                $0.pasteMode = mode
+                $0.delivery = delivery
+                $0.phoneCopyPending = phoneCopyPending
+            }
+            var sent = scan
+            sent.delivery = delivery
+            sent.phoneCopyPending = phoneCopyPending
+            await showOutcome(sent, toLaptop: toLaptop, targetName: target.displayName, elapsed: Self.seconds(since: startedAt))
+            isScanning = false
+            guard fromGlasses else { return await returnToMain(after: .zero) }
+            // Back where the wearer was, unless something else took the screen meanwhile.
+            switch router.screen {
+            case .done, .error: showHistory()
+            default: break
+            }
+        }
+    }
+
+    func settingsModel() -> GlassesScreen.Settings {
+        GlassesScreen.Settings(
+            target: usesLaptop ? laptopTarget.displayName : "PHONE",
+            paste: usesLaptop ? (pasteMode == .autopaste ? "AUTOPASTE" : "CLIPBOARD") : nil,
+            lineBreaks: lineBreaks, sound: sound)
+    }
+
+    /// A pinch on a SETTINGS row cycles its value; the change shows on the phone too (SPEC 6.2).
+    private func cycle(_ row: GlassesScreen.SettingRow) {
+        switch row {
+        case .target:
+            // Only cycles once a laptop is paired. The phone app's switch also carries the latest
+            // scan over; on the glasses CARBON may be in the background, so this one doesn't.
+            if link.laptop != nil { targetIsLaptop.toggle() }
+        case .paste: pasteMode = pasteMode == .autopaste ? .clipboard : .autopaste
+        case .lineBreaks: lineBreaks.toggle()
+        case .sound: sound.toggle()
+        case .pair:
+            router.show(.pairInfo)
+            return
+        }
+        router.show(.settings(settingsModel()))
     }
 
     private func scanProgressed(_ progress: Pipeline.Progress, startedAt: ContinuousClock.Instant) {
@@ -301,7 +452,7 @@ final class AppStore {
     }
 
     private func returnToMain(after delay: Duration) async {
-        try? await Task.sleep(for: delay)
+        if delay > .zero { try? await Task.sleep(for: delay) }
         switch router.screen {
         case .done, .linked:
             router.show(.main(mainModel()))

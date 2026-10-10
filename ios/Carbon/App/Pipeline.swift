@@ -72,15 +72,8 @@ final class Pipeline {
 
         progress(.stage(.copy))
         let id = UUID()
-        let delivery = await target.deliver(text, id: id, mode: mode)
+        let (delivery, phoneCopyPending) = await deliver(text, id: id, to: target, mode: mode)
         timings.delivered = now()
-
-        // Not delivered to the laptop (or it speaks another version): the phone clipboard gets it,
-        // now if CARBON is open, otherwise the moment it opens.
-        var phoneCopyPending: Bool?
-        if delivery == .notDelivered || delivery == .failed(.version) {
-            phoneCopyPending = await fallback.deliver(text, id: id, mode: .clipboard) == .awaitingAppOpen ? true : nil
-        }
 
         log.add("scan \(kind.rawValue) · \(photo.count) B · \(text.count) chars · skew \(String(format: "%.1f", read.skewDegrees))° · " +
                 "first byte \(timings.firstByte ?? -1) · photo \(timings.photoReceived ?? -1) · read \(timings.readDone ?? -1) · " +
@@ -90,6 +83,16 @@ final class Pipeline {
         return .success(Scan(id: id, createdAt: .now, text: text, target: target.id, pasteMode: mode,
                              kind: kind, timings: timings, delivery: delivery, photoBytes: photo.count,
                              cutEdges: read.cutEdges.isEmpty ? nil : read.cutEdges, phoneCopyPending: phoneCopyPending))
+    }
+
+    /// Hands text to a target. Not delivered to the laptop (or it speaks another version): the phone
+    /// clipboard gets it, now if CARBON is open, otherwise the moment it opens (`phoneCopyPending`).
+    /// Also used by RESEND, which sends a saved scan without a new photo.
+    func deliver(_ text: String, id: UUID, to target: any ScanTarget, mode: PasteMode) async -> (DeliveryStatus, Bool?) {
+        let delivery = await target.deliver(text, id: id, mode: mode)
+        guard delivery == .notDelivered || delivery == .failed(.version) else { return (delivery, nil) }
+        let pending = await fallback.deliver(text, id: id, mode: .clipboard) == .awaitingAppOpen
+        return (delivery, pending ? true : nil)
     }
 
     /// Debug "Keep captures" (SPEC 3 rule 7): off by default; photos are otherwise never stored.

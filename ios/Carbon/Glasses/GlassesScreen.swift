@@ -10,6 +10,38 @@ nonisolated enum GlassesScreen: Equatable, Sendable {
     case error(ScanError, elapsed: Double?)
     /// A new laptop pairing completed during a session (SPEC 6.2, PAIR).
     case linked(name: String, filled: Bool)
+    /// One saved scan (SPEC 6.2, HISTORY).
+    case history(History)
+    case settings(Settings)
+    /// SETTINGS › PAIR NEW COMPUTER: pairing runs from the phone and the companion.
+    case pairInfo
+    /// The dot-matrix wordmark while the display starts (SPEC 7.4).
+    case boot
+
+    nonisolated struct History: Equatable, Sendable {
+        /// 0 is the newest.
+        var index: Int
+        var count: Int
+        /// "12:38 · ZEPHYRUS · AUTOPASTE", plus " · NOT DELIVERED" when it didn't reach the laptop.
+        var meta: String
+        /// Up to 8 lines of the scan, already shortened.
+        var lines: [String]
+
+        var isOldest: Bool { index >= count - 1 }
+    }
+
+    nonisolated struct Settings: Equatable, Sendable {
+        var target: String
+        /// nil when the target is the phone (PASTE is laptop only).
+        var paste: String?
+        var lineBreaks: Bool
+        var sound: Bool
+    }
+
+    /// The rows of SETTINGS, in order (SPEC 6.2).
+    nonisolated enum SettingRow: Sendable {
+        case target, paste, lineBreaks, sound, pair
+    }
 
     nonisolated struct Main: Equatable, Sendable {
         var targetLabel = "TARGET·PHONE"

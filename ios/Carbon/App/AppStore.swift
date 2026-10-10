@@ -248,28 +248,36 @@ final class AppStore {
 
     // MARK: - Reader lab (debug)
 
-    /// Re-reads the newest kept photos (Keep captures) with several minimum text heights and logs
-    /// characters, CER against fixture slide `slide`, and reading time. Results go to carbon.log.
+    /// Re-reads the newest kept photos (Keep captures) with several reader variants and logs
+    /// characters, CER against fixture slide `slide`, Vision's observation counts, and reading time.
     func rereadKeptCaptures(slide: Int) {
         let dir = URL.documentsDirectory.appending(path: "captures", directoryHint: .isDirectory)
         let photos = ((try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? [])
             .filter { $0.pathExtension == "heic" && Int($0.deletingPathExtension().lastPathComponent) != nil }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
-            .suffix(2)
+            .suffix(3)
+        let variants: [(String, VisionLineReader)] = [
+            ("baseline", VisionLineReader()),
+            ("no language correction", VisionLineReader(languageCorrection: false)),
+            ("upscale 1.5x", VisionLineReader(upscale: 1.5)),
+            ("upscale 2x", VisionLineReader(upscale: 2)),
+            ("legacy API", VisionLineReader(engine: .legacy)),
+        ]
         let truth = FixtureCheck.truth(for: slide)
         log.add("reader lab · \(photos.count) photo(s) · against slide \(slide)")
         Task {
             for url in photos {
                 guard let data = try? Data(contentsOf: url) else { continue }
-                for denominator in [32, 64, 100] {
+                for (name, reader) in variants {
                     let startedAt = ContinuousClock.now
                     do {
-                        let read = try await VisionLineReader(minimumTextHeight: 1 / Float(denominator)).read(data)
+                        let (read, stats) = try await reader.readWithStats(data)
                         let text = AsIsFormatter().format(read, lineBreaks: true)
                         let cer = truth.flatMap { CharacterErrorRate.of(text, truth: $0) }.map { String(format: "%.2f%%", $0 * 100) } ?? "-"
-                        log.add("reader lab · \(url.lastPathComponent) · min 1/\(denominator) · \(text.count) chars · CER \(cer) · \(Pipeline.ms(since: startedAt)) ms")
+                        log.add("reader lab · \(url.lastPathComponent) · \(name) · \(text.count) chars · CER \(cer) · " +
+                                "\(stats.observations) obs (\(stats.blank) blank) · \(Pipeline.ms(since: startedAt)) ms")
                     } catch {
-                        log.add("reader lab · \(url.lastPathComponent) · min 1/\(denominator) · failed: \(error)")
+                        log.add("reader lab · \(url.lastPathComponent) · \(name) · failed: \(error)")
                     }
                 }
             }

@@ -258,15 +258,18 @@ final class AppStore {
             .suffix(4)
         let truth = FixtureCheck.truth(for: slide)
         log.add("reader lab · \(photos.count) photo(s) · against slide \(slide)")
-        log.add("reader lab · Vision devices · \(VisionLineReader.computeDevices())")
         Task {
             for url in photos {
                 guard let data = try? Data(contentsOf: url) else { continue }
-                // Vision's own choice of processor, then each processor pinned in turn.
-                await labRead(url, "auto", VisionLineReader(), data, truth)
-                for processor in VisionLineReader.Processor.allCases {
-                    await labRead(url, processor.rawValue, VisionLineReader(processor: processor), data, truth)
+                // How the pixels reach Vision (decode format), then the head-roll tilt levelled out.
+                let plain = await labRead(url, "plain", VisionLineReader(), data, truth)
+                await labRead(url, "redrawn 8-bit", VisionLineReader(redraw: true), data, truth)
+                await labRead(url, "Vision decodes the file", VisionLineReader(visionDecodes: true), data, truth)
+                if let lines = plain?.lines, !lines.isEmpty {
+                    let skew = ReadingOrder.blocks(from: lines).skewDegrees
+                    await labRead(url, String(format: "levelled %.1f°", skew), VisionLineReader(rotateDegrees: skew), data, truth)
                 }
+                await labRead(url, "turned -2.5°", VisionLineReader(rotateDegrees: -2.5), data, truth)
             }
             log.add("reader lab · done")
         }

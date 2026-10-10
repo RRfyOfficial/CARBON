@@ -2,6 +2,7 @@
 
 import MWDATCore
 import SwiftUI
+import UIKit
 
 @main
 struct CarbonApp: App {
@@ -24,9 +25,13 @@ struct CarbonApp: App {
                 .environment(store)
                 .task { store.boot() }
                 .onOpenURL { store.session.handleURL($0) }
+                // Posted once the app is fully active, which can be after the scene phase changes.
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                    store.appBecameActive(via: "app")
+                }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { store.appBecameActive() }
+            if phase == .active { store.appBecameActive(via: "scene") }
         }
     }
 }

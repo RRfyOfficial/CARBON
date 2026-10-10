@@ -28,6 +28,7 @@ nonisolated enum GlassesScreen: Equatable, Sendable {
         var lines: [String]
 
         var isOldest: Bool { index >= count - 1 }
+        var isNewest: Bool { index == 0 }
     }
 
     nonisolated struct Settings: Equatable, Sendable {

@@ -50,10 +50,13 @@ enum GlassesScreens {
             Text(model.meta, style: .meta, color: .secondary)
             Text(model.lines.joined(separator: "\n"), style: .body, color: .primary)
             Button(label: "RESEND", style: .primary, iconName: .twoArrowsClockwise, onClick: actions.resend)
+            // Reads like a timeline: OLDER on the left, NEWER on the right; each hides at its end.
             FlexBox(direction: .row, spacing: 12) {
-                Button(label: "NEWER", style: .outline, iconName: nil, onClick: actions.newer).flexGrow(1)
                 if !model.isOldest {
                     Button(label: "OLDER", style: .outline, iconName: nil, onClick: actions.older).flexGrow(1)
+                }
+                if !model.isNewest {
+                    Button(label: "NEWER", style: .outline, iconName: nil, onClick: actions.newer).flexGrow(1)
                 }
                 Button(label: "BACK", style: .outline, iconName: nil, onClick: actions.back).flexGrow(1)
             }

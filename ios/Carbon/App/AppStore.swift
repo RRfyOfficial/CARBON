@@ -12,6 +12,7 @@ final class AppStore {
     let history: HistoryStore
     let session: GlassesSession
     let fixtures = FixtureCheck()
+    let linkSpike: LinkSpike
     @ObservationIgnored let router: GlassesRouter
     @ObservationIgnored let pipeline: Pipeline
     @ObservationIgnored private let ticks = TickSynth()
@@ -47,6 +48,7 @@ final class AppStore {
         self.session = session
         self.history = HistoryStore()
         self.router = GlassesRouter(log: log)
+        self.linkSpike = LinkSpike(log: log)
         self.phoneTarget = target
         self.pipeline = Pipeline(
             photoSource: GlassesPhotoSource(session: session, log: log),
@@ -74,6 +76,7 @@ final class AppStore {
     func boot() {
         log.add("CARBON launched")
         session.boot()
+        linkSpike.boot()
         router.show(.main(mainModel()))
     }
 

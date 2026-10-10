@@ -1,0 +1,95 @@
+// What the glasses show (SPEC 6.2). Every case is one full display send. Plain values: the
+// builders in Screens/ turn them into display views.
+
+import Foundation
+
+nonisolated enum GlassesScreen: Equatable, Sendable {
+    case main(Main)
+    case scanning(Scanning)
+    case done(Done, filled: Bool)
+    case error(ScanError, elapsed: Double?)
+
+    nonisolated struct Main: Equatable, Sendable {
+        var targetLabel = "TARGET·PHONE"
+        /// "LAST · 12:41 · 214 CHARS", or nil before the first scan.
+        var lastLine: String?
+        /// Up to 3 lines of the last scan, already shortened.
+        var preview: [String] = []
+        var showCameraHint = true
+    }
+
+    nonisolated struct Scanning: Equatable, Sendable {
+        nonisolated enum Stage: Int, Comparable, Sendable {
+            case capture, transfer, read, copy
+
+            static func < (a: Stage, b: Stage) -> Bool { a.rawValue < b.rawValue }
+
+            var railName: String {
+                switch self {
+                case .capture: "CAPTURE"
+                case .transfer: "TRANSFER"
+                case .read: "READ"
+                case .copy: "COPY"
+                }
+            }
+
+            var heading: String {
+                switch self {
+                case .capture: "CAPTURING"
+                case .transfer: "TRANSFERRING"
+                case .read: "READING"
+                case .copy: "COPYING"
+                }
+            }
+        }
+
+        var targetLabel = "TARGET·PHONE"
+        var stage: Stage = .capture
+        var transferPercent: Int?
+        var elapsed: Double = 0
+        var stillWorking = false
+        var detail = false
+    }
+
+    nonisolated struct Done: Equatable, Sendable {
+        var chars: Int
+        var targetName = "PHONE"
+        var how = "ON PHONE CLIPBOARD"
+        var elapsed: Double
+    }
+}
+
+nonisolated extension ScanError {
+    var heading: String {
+        switch self {
+        case .noText: "NO TEXT FOUND"
+        case .captureFailed: "CAPTURE FAILED"
+        case .timeout: "TOOK TOO LONG"
+        case .notDelivered: "SAVED TO PHONE"
+        case .openToCopy: "SAVED"
+        case .pasteBlocked, .autopasteOff: "COPIED, NOT PASTED"
+        case .version: "UPDATE NEEDED"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .noText: "AIM AT THE BOARD AND TRY AGAIN"
+        case .captureFailed: "GLASSES CAMERA DIDN'T RESPOND"
+        case .timeout: "TRY AGAIN"
+        case .notDelivered: "LAPTOP UNREACHABLE · ON PHONE CLIPBOARD"
+        case .openToCopy: "OPEN CARBON TO COPY"
+        case .pasteBlocked: "THAT WINDOW IS RUNNING AS ADMIN"
+        case .autopasteOff: "AUTOPASTE IS OFF ON THIS PC"
+        case .version: "UPDATE THE COMPANION APP"
+        }
+    }
+
+    /// The scan is safe (saved or copied); shown like DONE, with no RETRY (SPEC 6.2).
+    var isSafe: Bool {
+        switch self {
+        case .notDelivered, .openToCopy, .pasteBlocked, .autopasteOff: true
+        case .noText, .captureFailed, .timeout, .version: false
+        }
+    }
+}

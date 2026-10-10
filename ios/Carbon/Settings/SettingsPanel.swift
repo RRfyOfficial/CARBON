@@ -11,7 +11,10 @@ struct SettingsPanel: View {
         @Bindable var store = store
         Panel(number: "04", title: "SETTINGS") {
             choice("TARGET", options: [("PHONE", false), (store.link.laptop?.name.uppercased() ?? "LAPTOP", true)],
-                   selected: store.usesLaptop, enabled: store.link.laptop != nil) { store.targetIsLaptop = $0 }
+                   selected: store.usesLaptop, enabled: store.link.laptop != nil) { store.chooseTarget(laptop: $0) }
+            if let note = store.targetSwitchNote {
+                Text(note).tacturaLabel(9, color: Palette.text)
+            }
             if store.usesLaptop {
                 choice("PASTE", options: [("CLIPBOARD", PasteMode.clipboard), ("AUTOPASTE", .autopaste)],
                        selected: store.pasteMode, enabled: true) { store.pasteMode = $0 }

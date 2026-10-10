@@ -1,6 +1,6 @@
 # M0 report: spike test results
 
-> **Status: in progress.** Hardware sessions on 2026-10-09 and 2026-10-10. All phone-side questions are answered, and the slide benchmark has run. **No capture configuration meets both targets (see "Slide benchmark"), so a decision from Russell is needed.** Left: that decision, the Wi-Fi check, and U8. Spike code lives on the `spike/m0` branch (the "CARBON Lab" app). Logs come off the phone with `mac.sh logs`.
+> **Status: all decided except U8.** Hardware sessions on 2026-10-09 and 2026-10-10. Russell approved every proposed decision on 2026-10-10. They're recorded in the SPEC decision log and the affected SPEC sections. Wi-Fi check: Xcode offers neither Hotspot nor Access Wi-Fi Information to a free Personal Team, so photos stay on Bluetooth. **Only U8 (laptop Bluetooth peripheral) is left.** Spike code lives on the `spike/m0` branch (the "CARBON Lab" app).
 > SPEC Section 1.4 lists the questions. Section 8.3 defines the capture benchmark.
 
 ## Summary
@@ -17,7 +17,7 @@
 | U8 | Can the Zephyrus act as a BLE peripheral? | **Flag says yes, but GATT advertising fails** | 🟡 Partial |
 | U9 | Can CARBON restart a session after the hinges reopen? | **Yes, automatically.** Lab screen back 2.1 s after the glasses reconnect, without touching the phone | ✅ Answered |
 | U10 | Does the first pinch on a sleeping display deliver `select`? | **Moot.** The display never slept during a session (4+ min with no app sends) | ✅ Answered (as observed) |
-| Bench | Capture configuration | **None passes both targets.** LARGE/MEDIUM: p95 7.0 s, CER 9.4%. LARGE/HIGH: CER 3.7%, p95 14.2 s | 🔴 Decision needed |
+| Bench | Capture configuration | **None passes both targets.** Russell chose fast scan LARGE/MEDIUM + detail scan LARGE/HIGH, and a p95 ≤ 8 s promise | ✅ Decided |
 
 **Biggest risk found:** photo transfer runs over **Bluetooth at roughly 25–65 KB/s**, so photo *size* drives latency.
 - MEDIUM quality is fast enough to be close to budget, but it erases thin and faint text.
@@ -211,7 +211,9 @@ Vision **does not output list bullets** at all: "•" never appears in its resul
 - If bullets matter later, detect them from layout: a consistent left indent with a gap to a small mark.
 - The CER scorer ignores bullet glyphs.
 
-## Decisions needed (Russell)
+## Decisions (made by Russell on 2026-10-10)
+
+**Outcome:** 1 → C (fast scan + detail scan). 2 → relax to 8 s. 3 → approved, along with the U2, U3, U5, U6 and U9 decisions. 4 → local only. D was ruled out because Xcode doesn't offer Hotspot to a free Personal Team. All of it is in the SPEC decision log. The options as they were presented:
 
 1. **Capture configuration.** No option meets both p95 ≤ 6 s and CER ≤ 2%:
    - **A. LARGE/MEDIUM** (recommended default). About 5.5 s median, 7 s p95. Near-perfect on normal slide text. Loses thin table digits, faint captions and tiny footers.

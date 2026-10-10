@@ -2,7 +2,7 @@
 
 import Foundation
 
-protocol ScanFormatter: Sendable {
+nonisolated protocol ScanFormatter: Sendable {
     func format(_ text: ReadText, lineBreaks: Bool) -> String
 }
 

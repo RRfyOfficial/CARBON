@@ -1,7 +1,7 @@
 #!/usr/bin/env swift
 // CARBON M0: Apple Vision OCR accuracy (CER) over a folder of fixture photos.
 // Implements SPEC 8.4 "Reader v1" (Vision settings + reading order) and SPEC 8.3 (CER).
-// Usage: swift ocr.swift <folder> [--truth <file> | --truth-dir <dir>] [--out <dir>] [--show]
+// Usage: swift ocr.swift <folder> [--truth <file> | --truth-dir <dir>] [--deskew] [--out <dir>] [--show]
 
 import CoreGraphics
 import Foundation
@@ -11,7 +11,7 @@ import Vision
 // MARK: - Types
 
 enum Tool {
-    static let usage = "usage: swift ocr.swift <folder> [--truth <file> | --truth-dir <dir>] [--out <dir>] [--show]"
+    static let usage = "usage: swift ocr.swift <folder> [--truth <file> | --truth-dir <dir>] [--deskew] [--out <dir>] [--show]"
     static let imageExtensions: Set<String> = ["heic", "jpg", "jpeg", "png"]
     static let resolutions: Set<String> = ["LARGE", "FULL"]
     static let qualities: Set<String> = ["MEDIUM", "HIGH"]
@@ -28,6 +28,7 @@ struct Setup {
     let truthDir: URL?
     let outDir: URL?
     let show: Bool
+    let deskew: Bool
 }
 
 /// Capture settings parsed from `<anything>-<RES>-<QUALITY>.<ext>`, or "other".
@@ -46,7 +47,14 @@ struct CaptureConfig {
     }
 }
 
-/// One recognized line. `box` is normalized with a TOP-LEFT origin.
+/// A recognized line as Vision returned it: its quadrilateral in pixels, TOP-LEFT origin,
+/// corners in the order top-left, top-right, bottom-right, bottom-left.
+struct RawLine {
+    let text: String
+    let corners: [CGPoint]
+}
+
+/// A line ready for ordering: an axis-aligned box in (possibly deskewed) pixel space.
 struct Line {
     let text: String
     let box: CGRect
@@ -68,6 +76,7 @@ struct ImageResult {
     let noText: Bool
     let ocrMs: Double
     let cer: Double?
+    let skewDegrees: Double?
 }
 
 // MARK: - Image loading and Vision
@@ -86,26 +95,55 @@ func loadImage(_ url: URL) throws -> (CGImage, CGImagePropertyOrientation) {
 }
 
 @available(macOS 15.0, *)
-func recognizeLines(in image: CGImage, orientation: CGImagePropertyOrientation) async throws -> [Line] {
+func recognizeLines(in image: CGImage, orientation: CGImagePropertyOrientation) async throws -> [RawLine] {
     var request = RecognizeTextRequest()
     request.recognitionLevel = .accurate
     request.usesLanguageCorrection = true
     request.recognitionLanguages = [Locale.Language(identifier: "en-US")]
     // Docs give the return type only as `Self.Result`; the explicit annotation turns a mismatch into a compile error.
     let observations: [RecognizedTextObservation] = try await request.perform(on: image, orientation: orientation)
-    return observations.compactMap { observation -> Line? in
+    // Normalized points are relative to the upright image, BOTTOM-LEFT origin. Convert to pixels, top-left origin,
+    // so angles come out right for non-square images.
+    let quarterTurn: Set<CGImagePropertyOrientation> = [.left, .leftMirrored, .right, .rightMirrored]
+    let width = CGFloat(quarterTurn.contains(orientation) ? image.height : image.width)
+    let height = CGFloat(quarterTurn.contains(orientation) ? image.width : image.height)
+    func pixel(_ p: NormalizedPoint) -> CGPoint { CGPoint(x: p.x * width, y: (1 - p.y) * height) }
+    return observations.compactMap { observation -> RawLine? in
         guard let text = observation.topCandidates(1).first?.string, !text.isEmpty else { return nil }
-        let r = observation.boundingBox.cgRect  // normalized, BOTTOM-LEFT origin
-        return Line(text: text, box: CGRect(x: r.minX, y: 1 - r.minY - r.height, width: r.width, height: r.height))
+        let corners = [observation.topLeft, observation.topRight, observation.bottomRight, observation.bottomLeft].map(pixel)
+        return RawLine(text: text, corners: corners)
     }
 }
 
+/// Median slope of lines with at least 4 characters, in radians (pixel space, y down).
+func estimateSkew(_ raw: [RawLine]) -> CGFloat {
+    let angles = raw.filter { $0.text.count >= 4 }.map { line in
+        atan2(line.corners[1].y - line.corners[0].y, line.corners[1].x - line.corners[0].x)
+    }
+    return median(angles)
+}
+
+/// Axis-aligned boxes for ordering. With `deskew`, every quadrilateral is first rotated by the
+/// page's median tilt, so a slightly tilted photo doesn't inflate line boxes and merge rows.
+func layoutLines(_ raw: [RawLine], deskew: Bool) -> (lines: [Line], skew: CGFloat) {
+    let theta = deskew ? estimateSkew(raw) : 0
+    let (c, s) = (cos(theta), sin(theta))
+    let lines = raw.map { line -> Line in
+        let points = line.corners.map { p in CGPoint(x: p.x * c + p.y * s, y: -p.x * s + p.y * c) }
+        let xs = points.map { $0.x }, ys = points.map { $0.y }
+        let (minX, maxX, minY, maxY) = (xs.min() ?? 0, xs.max() ?? 0, ys.min() ?? 0, ys.max() ?? 0)
+        return Line(text: line.text, box: CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY))
+    }
+    return (lines, theta)
+}
+
 @available(macOS 15.0, *)
-func processImage(_ url: URL, truth: String?) async throws -> ImageResult {
+func processImage(_ url: URL, truth: String?, deskew: Bool) async throws -> ImageResult {
     let (image, orientation) = try loadImage(url)
     let start = ProcessInfo.processInfo.systemUptime
-    let lines = try await recognizeLines(in: image, orientation: orientation)
+    let raw = try await recognizeLines(in: image, orientation: orientation)
     let ocrMs = (ProcessInfo.processInfo.systemUptime - start) * 1000
+    let (lines, skew) = layoutLines(raw, deskew: deskew)
     let ordered = readingOrderText(lines)
     let noText = ordered.filter { !$0.isWhitespace }.count < 2
     let text = noText ? "" : ordered
@@ -115,7 +153,8 @@ func processImage(_ url: URL, truth: String?) async throws -> ImageResult {
         text: text,
         noText: noText,
         ocrMs: ocrMs,
-        cer: truth.flatMap { characterErrorRate(ocr: text, truth: $0) })
+        cer: truth.flatMap { characterErrorRate(ocr: text, truth: $0) },
+        skewDegrees: deskew ? Double(skew) * 180 / .pi : nil)
 }
 
 // MARK: - Reading order (SPEC 8.4)
@@ -230,7 +269,7 @@ func levenshtein(_ a: [Int], _ b: [Int]) -> Int {
 
 /// Parses and validates the arguments. Any thrown error is a usage error (exit 2).
 func makeSetup(_ args: [String]) throws -> Setup {
-    var folderPath: String?, truthPath: String?, truthDirPath: String?, outPath: String?, show = false
+    var folderPath: String?, truthPath: String?, truthDirPath: String?, outPath: String?, show = false, deskew = false
     var rest = args[...]
     while let arg = rest.popFirst() {
         switch arg {
@@ -238,6 +277,7 @@ func makeSetup(_ args: [String]) throws -> Setup {
         case "--truth-dir": truthDirPath = try optionValue(for: arg, from: &rest)
         case "--out": outPath = try optionValue(for: arg, from: &rest)
         case "--show": show = true
+        case "--deskew": deskew = true
         case _ where arg.hasPrefix("-"): throw ToolError("unknown option \(arg)")
         case _ where folderPath != nil: throw ToolError("only one <folder> is allowed")
         default: folderPath = arg
@@ -268,7 +308,7 @@ func makeSetup(_ args: [String]) throws -> Setup {
         catch { throw ToolError("cannot create --out folder \(outPath)") }
         outDir = dir
     }
-    return Setup(images: images, sharedTruth: sharedTruth, truthDir: truthDir, outDir: outDir, show: show)
+    return Setup(images: images, sharedTruth: sharedTruth, truthDir: truthDir, outDir: outDir, show: show, deskew: deskew)
 }
 
 func optionValue(for option: String, from rest: inout ArraySlice<String>) throws -> String {
@@ -322,7 +362,8 @@ func writeError(_ message: String) {
 
 func report(_ r: ImageResult, show: Bool) {
     let flag = r.noText ? " NO_TEXT" : ""
-    print("RESULT \(r.file) chars=\(r.text.count) ocr_ms=\(fixed(r.ocrMs, 0)) cer=\(cerText(r.cer))\(flag)")
+    let skew = r.skewDegrees.map { " skew=\(fixed($0, 2))deg" } ?? ""
+    print("RESULT \(r.file) chars=\(r.text.count) ocr_ms=\(fixed(r.ocrMs, 0)) cer=\(cerText(r.cer))\(flag)\(skew)")
     guard show else { return }
     for line in (r.noText ? "(no text)" : r.text).split(separator: "\n", omittingEmptySubsequences: false) {
         print(line.isEmpty ? "" : "    \(line)")
@@ -387,7 +428,7 @@ func runTool(_ args: [String]) async -> Int32 {
     for url in setup.images {
         do {
             let truth = groundTruth(for: url, shared: setup.sharedTruth, truthDir: setup.truthDir)
-            let result = try await processImage(url, truth: truth)
+            let result = try await processImage(url, truth: truth, deskew: setup.deskew)
             results.append(result)
             report(result, show: setup.show)
             if let outDir = setup.outDir {

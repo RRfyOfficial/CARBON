@@ -246,6 +246,37 @@ final class AppStore {
         return rows.joined(separator: "\n")
     }
 
+    // MARK: - Reader lab (debug)
+
+    /// Re-reads the newest kept photos (Keep captures) with several minimum text heights and logs
+    /// characters, CER against fixture slide `slide`, and reading time. Results go to carbon.log.
+    func rereadKeptCaptures(slide: Int) {
+        let dir = URL.documentsDirectory.appending(path: "captures", directoryHint: .isDirectory)
+        let photos = ((try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? [])
+            .filter { $0.pathExtension == "heic" && Int($0.deletingPathExtension().lastPathComponent) != nil }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+            .suffix(2)
+        let truth = FixtureCheck.truth(for: slide)
+        log.add("reader lab · \(photos.count) photo(s) · against slide \(slide)")
+        Task {
+            for url in photos {
+                guard let data = try? Data(contentsOf: url) else { continue }
+                for denominator in [32, 64, 100] {
+                    let startedAt = ContinuousClock.now
+                    do {
+                        let read = try await VisionLineReader(minimumTextHeight: 1 / Float(denominator)).read(data)
+                        let text = AsIsFormatter().format(read, lineBreaks: true)
+                        let cer = truth.flatMap { CharacterErrorRate.of(text, truth: $0) }.map { String(format: "%.2f%%", $0 * 100) } ?? "-"
+                        log.add("reader lab · \(url.lastPathComponent) · min 1/\(denominator) · \(text.count) chars · CER \(cer) · \(Pipeline.ms(since: startedAt)) ms")
+                    } catch {
+                        log.add("reader lab · \(url.lastPathComponent) · min 1/\(denominator) · failed: \(error)")
+                    }
+                }
+            }
+            log.add("reader lab · done")
+        }
+    }
+
     // MARK: - App lifecycle
 
     /// Copy-on-open (M0 U5): scans that finished in the background go on the clipboard now.

@@ -6,8 +6,13 @@ import ImageIO
 import Vision
 
 nonisolated struct VisionLineReader: TextReader {
+    /// Smallest text Vision looks for, as a fraction of image height. Vision's default is 1/32
+    /// (about 34 px in a 1080 px photo). Slide text from a seat can be 13-15 px; text below the
+    /// minimum is handled inconsistently (M1: the phone dropped lines the Mac kept).
+    var minimumTextHeight: Float = 1.0 / 32
+
     func read(_ photo: Data) async throws -> ReadText {
-        let (lines, imageHeight) = try await Self.recognize(photo)
+        let (lines, imageHeight) = try await Self.recognize(photo, minimumTextHeight: minimumTextHeight)
         var text = ReadingOrder.blocks(from: lines)
         text.cutEdges = ReadingOrder.cutEdges(of: lines, imageHeight: imageHeight)
         return text
@@ -15,7 +20,7 @@ nonisolated struct VisionLineReader: TextReader {
 
     /// Decoding and recognition run off the main actor. Returns the lines and the upright image height.
     @concurrent
-    private static func recognize(_ photo: Data) async throws -> (lines: [RecognizedLine], imageHeight: CGFloat) {
+    private static func recognize(_ photo: Data, minimumTextHeight: Float) async throws -> (lines: [RecognizedLine], imageHeight: CGFloat) {
         guard let source = CGImageSourceCreateWithData(photo as CFData, nil) else {
             throw ReaderError.undecodableImage
         }
@@ -31,6 +36,7 @@ nonisolated struct VisionLineReader: TextReader {
         request.recognitionLevel = .accurate
         request.usesLanguageCorrection = true
         request.recognitionLanguages = [Locale.Language(identifier: "en-US")]
+        request.minimumTextHeightFraction = minimumTextHeight
         let observations: [RecognizedTextObservation] = try await request.perform(on: image, orientation: orientation)
 
         // Vision's points are normalized to the upright image with a bottom-left origin.

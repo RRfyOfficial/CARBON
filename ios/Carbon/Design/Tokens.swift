@@ -3,7 +3,7 @@
 
 import SwiftUI
 
-enum Palette {
+nonisolated enum Palette {
     static let bg = Color(hex: 0x0A0A0B)
     static let surface = Color(hex: 0x111113, opacity: 0.72)
     static let surfaceSolid = Color(hex: 0x111113)
@@ -18,14 +18,14 @@ enum Palette {
     static let ok = text                            // success is white, not green
 }
 
-enum Metrics {
+nonisolated enum Metrics {
     static let radius: CGFloat = 0
     static let chamfer: CGFloat = 10                // 45° cut, top-right corner
     static let grid: CGFloat = 8
     static let hairline: CGFloat = 1
 }
 
-enum Motion {
+nonisolated enum Motion {
     static let fast: Double = 0.12
     static let med: Double = 0.18
     static let flash: Double = 0.30
@@ -36,7 +36,7 @@ enum Motion {
 }
 
 extension Color {
-    init(hex: UInt32, opacity: Double = 1) {
+    nonisolated init(hex: UInt32, opacity: Double = 1) {
         self.init(
             .sRGB,
             red: Double((hex >> 16) & 0xFF) / 255,

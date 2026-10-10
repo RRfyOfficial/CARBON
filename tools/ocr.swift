@@ -3,8 +3,10 @@
 // Implements SPEC 8.4 "Reader v1" (Vision settings + reading order) and SPEC 8.3 (CER).
 // Usage: swift ocr.swift <folder> [--truth <file> | --truth-dir <dir>] [--deskew] [--rotate <deg> | --level]
 //        [--out <dir>] [--show]
-// --rotate turns the photo's pixels before reading (negative = clockwise, which levels text rising to the
-// right). --level reads once, measures the tilt, then reads the photo again with its pixels levelled.
+// --upright decodes the photo with its orientation already applied, so Vision gets upright pixels and
+// .up (the glasses store 1080x1920 sideways pixels plus an orientation). --rotate turns the photo's
+// pixels before reading (negative = clockwise, which levels text rising to the right). --level reads
+// once, measures the tilt, then reads the photo again with its pixels levelled. Both need upright pixels.
 // Also builds for the iOS simulator (mac.sh simocr), to read with the iPhone's Vision instead of the Mac's.
 
 import CoreGraphics
@@ -15,7 +17,7 @@ import Vision
 // MARK: - Types
 
 enum Tool {
-    static let usage = "usage: swift ocr.swift <folder> [--truth <file> | --truth-dir <dir>] [--deskew] [--rotate <deg> | --level] [--out <dir>] [--show]"
+    static let usage = "usage: swift ocr.swift <folder> [--truth <file> | --truth-dir <dir>] [--deskew] [--upright] [--rotate <deg> | --level] [--out <dir>] [--show]"
     static let imageExtensions: Set<String> = ["heic", "jpg", "jpeg", "png"]
     static let resolutions: Set<String> = ["LARGE", "FULL"]
     static let qualities: Set<String> = ["MEDIUM", "HIGH"]
@@ -35,6 +37,7 @@ struct Setup {
     let deskew: Bool
     let rotateDegrees: Double?
     let level: Bool
+    let upright: Bool
 }
 
 /// Capture settings parsed from `<anything>-<RES>-<QUALITY>.<ext>`, or "other".
@@ -85,21 +88,39 @@ struct ImageResult {
     let skewDegrees: Double?
     /// How far the pixels were turned before the final read (--rotate or --level), nil if not at all.
     let rotatedDegrees: Double?
+    /// The orientation the file declares (EXIF numbering, 1 = up).
+    let fileOrientation: UInt32
 }
 
 // MARK: - Image loading and Vision
 
-func loadImage(_ url: URL) throws -> (CGImage, CGImagePropertyOrientation) {
+/// The decoded image, the orientation to hand Vision, and the orientation the file declares.
+/// With `upright`, ImageIO applies the orientation while decoding, so the pixels are upright and
+/// Vision gets .up.
+func loadImage(_ url: URL, upright: Bool) throws -> (CGImage, CGImagePropertyOrientation, UInt32) {
     guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
         throw ToolError("cannot open image")
     }
     let index = CGImageSourceGetPrimaryImageIndex(source)
+    let properties = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [String: Any]
+    let raw = (properties?[kCGImagePropertyOrientation as String] as? NSNumber)?.uint32Value ?? 1
+    if upright {
+        let width = (properties?[kCGImagePropertyPixelWidth as String] as? NSNumber)?.intValue ?? 0
+        let height = (properties?[kCGImagePropertyPixelHeight as String] as? NSNumber)?.intValue ?? 0
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: max(width, height),
+        ]
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, index, options as CFDictionary) else {
+            throw ToolError("cannot decode image upright")
+        }
+        return (image, .up, raw)
+    }
     guard let image = CGImageSourceCreateImageAtIndex(source, index, nil) else {
         throw ToolError("cannot decode image")
     }
-    let properties = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [String: Any]
-    let raw = (properties?[kCGImagePropertyOrientation as String] as? NSNumber)?.uint32Value ?? 1
-    return (image, CGImagePropertyOrientation(rawValue: raw) ?? .up)
+    return (image, CGImagePropertyOrientation(rawValue: raw) ?? .up, raw)
 }
 
 /// The image turned by `radians` around its centre (negative = clockwise on screen), on a canvas
@@ -198,7 +219,7 @@ func layoutLines(_ raw: [RawLine], deskew: Bool) -> (lines: [Line], skew: CGFloa
 @available(macOS 15.0, *)
 func processImage(_ url: URL, truth: String?, setup: Setup) async throws -> ImageResult {
     let deskew = setup.deskew
-    let (decoded, orientation) = try loadImage(url)
+    let (decoded, orientation, fileOrientation) = try loadImage(url, upright: setup.upright)
     var image = decoded
     let start = ProcessInfo.processInfo.systemUptime
     // Turning pixels only makes sense in the stored grid, so only for upright photos (the glasses deliver .up).
@@ -235,7 +256,8 @@ func processImage(_ url: URL, truth: String?, setup: Setup) async throws -> Imag
         ocrMs: ocrMs,
         cer: truth.flatMap { characterErrorRate(ocr: text, truth: $0) },
         skewDegrees: deskew ? Double(skew) * 180 / .pi : nil,
-        rotatedDegrees: turned)
+        rotatedDegrees: turned,
+        fileOrientation: fileOrientation)
 }
 
 // MARK: - Reading order (SPEC 8.4)
@@ -352,7 +374,7 @@ func levenshtein(_ a: [Int], _ b: [Int]) -> Int {
 /// Parses and validates the arguments. Any thrown error is a usage error (exit 2).
 func makeSetup(_ args: [String]) throws -> Setup {
     var folderPath: String?, truthPath: String?, truthDirPath: String?, outPath: String?, show = false, deskew = false
-    var rotateDegrees: Double?, level = false
+    var rotateDegrees: Double?, level = false, upright = false
     var rest = args[...]
     while let arg = rest.popFirst() {
         switch arg {
@@ -362,6 +384,7 @@ func makeSetup(_ args: [String]) throws -> Setup {
         case "--show": show = true
         case "--deskew": deskew = true
         case "--level": level = true
+        case "--upright": upright = true
         case "--rotate":
             let value = try optionValue(for: arg, from: &rest)
             guard let degrees = Double(value) else { throw ToolError("--rotate needs degrees, got \(value)") }
@@ -398,7 +421,7 @@ func makeSetup(_ args: [String]) throws -> Setup {
         outDir = dir
     }
     return Setup(images: images, sharedTruth: sharedTruth, truthDir: truthDir, outDir: outDir, show: show, deskew: deskew,
-                 rotateDegrees: rotateDegrees, level: level)
+                 rotateDegrees: rotateDegrees, level: level, upright: upright)
 }
 
 func optionValue(for option: String, from rest: inout ArraySlice<String>) throws -> String {
@@ -454,7 +477,7 @@ func report(_ r: ImageResult, show: Bool) {
     let flag = r.noText ? " NO_TEXT" : ""
     let skew = r.skewDegrees.map { " skew=\(fixed($0, 2))deg" } ?? ""
     let turned = r.rotatedDegrees.map { " rotated=\(fixed($0, 2))deg" } ?? ""
-    print("RESULT \(r.file) chars=\(r.text.count) ocr_ms=\(fixed(r.ocrMs, 0)) cer=\(cerText(r.cer))\(flag)\(skew)\(turned)")
+    print("RESULT \(r.file) chars=\(r.text.count) ocr_ms=\(fixed(r.ocrMs, 0)) cer=\(cerText(r.cer))\(flag)\(skew)\(turned) orientation=\(r.fileOrientation)")
     guard show else { return }
     for line in (r.noText ? "(no text)" : r.text).split(separator: "\n", omittingEmptySubsequences: false) {
         print(line.isEmpty ? "" : "    \(line)")

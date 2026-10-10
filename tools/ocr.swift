@@ -1,7 +1,7 @@
 #!/usr/bin/env swift
 // CARBON M0: Apple Vision OCR accuracy (CER) over a folder of fixture photos.
 // Implements SPEC 8.4 "Reader v1" (Vision settings + reading order) and SPEC 8.3 (CER).
-// Usage: swift ocr.swift <folder> [--truth <file>] [--out <dir>] [--show]
+// Usage: swift ocr.swift <folder> [--truth <file> | --truth-dir <dir>] [--out <dir>] [--show]
 
 import CoreGraphics
 import Foundation
@@ -11,7 +11,7 @@ import Vision
 // MARK: - Types
 
 enum Tool {
-    static let usage = "usage: swift ocr.swift <folder> [--truth <file>] [--out <dir>] [--show]"
+    static let usage = "usage: swift ocr.swift <folder> [--truth <file> | --truth-dir <dir>] [--out <dir>] [--show]"
     static let imageExtensions: Set<String> = ["heic", "jpg", "jpeg", "png"]
     static let resolutions: Set<String> = ["LARGE", "FULL"]
     static let qualities: Set<String> = ["MEDIUM", "HIGH"]
@@ -25,6 +25,7 @@ struct ToolError: LocalizedError {
 struct Setup {
     let images: [URL]
     let sharedTruth: String?
+    let truthDir: URL?
     let outDir: URL?
     let show: Bool
 }
@@ -209,11 +210,12 @@ func levenshtein(_ a: [Int], _ b: [Int]) -> Int {
 
 /// Parses and validates the arguments. Any thrown error is a usage error (exit 2).
 func makeSetup(_ args: [String]) throws -> Setup {
-    var folderPath: String?, truthPath: String?, outPath: String?, show = false
+    var folderPath: String?, truthPath: String?, truthDirPath: String?, outPath: String?, show = false
     var rest = args[...]
     while let arg = rest.popFirst() {
         switch arg {
         case "--truth": truthPath = try optionValue(for: arg, from: &rest)
+        case "--truth-dir": truthDirPath = try optionValue(for: arg, from: &rest)
         case "--out": outPath = try optionValue(for: arg, from: &rest)
         case "--show": show = true
         case _ where arg.hasPrefix("-"): throw ToolError("unknown option \(arg)")
@@ -231,6 +233,14 @@ func makeSetup(_ args: [String]) throws -> Setup {
         }
         sharedTruth = text
     }
+    var truthDir: URL?
+    if let truthDirPath {
+        let dir = URL(fileURLWithPath: truthDirPath, isDirectory: true)
+        guard (try? dir.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true else {
+            throw ToolError("not a folder: --truth-dir \(truthDirPath)")
+        }
+        truthDir = dir
+    }
     var outDir: URL?
     if let outPath {
         let dir = URL(fileURLWithPath: outPath, isDirectory: true)
@@ -238,7 +248,7 @@ func makeSetup(_ args: [String]) throws -> Setup {
         catch { throw ToolError("cannot create --out folder \(outPath)") }
         outDir = dir
     }
-    return Setup(images: images, sharedTruth: sharedTruth, outDir: outDir, show: show)
+    return Setup(images: images, sharedTruth: sharedTruth, truthDir: truthDir, outDir: outDir, show: show)
 }
 
 func optionValue(for option: String, from rest: inout ArraySlice<String>) throws -> String {
@@ -265,9 +275,14 @@ func readText(_ url: URL) throws -> String {
     return text.hasPrefix("\u{FEFF}") ? String(text.dropFirst()) : text
 }
 
-/// `--truth` applies to every image; otherwise `NAME.txt` next to `NAME.<ext>`.
-func groundTruth(for image: URL, shared: String?) -> String? {
+/// `--truth` applies to every image. `--truth-dir` maps `slide03-r1-LARGE-MEDIUM.heic` to
+/// `<dir>/slide03.txt` (the name up to the first "-"). Otherwise `NAME.txt` next to `NAME.<ext>`.
+func groundTruth(for image: URL, shared: String?, truthDir: URL?) -> String? {
     if let shared { return shared }
+    if let truthDir {
+        let prefix = image.deletingPathExtension().lastPathComponent.split(separator: "-").first.map(String.init) ?? ""
+        return try? readText(truthDir.appendingPathComponent(prefix + ".txt"))
+    }
     return try? readText(image.deletingPathExtension().appendingPathExtension("txt"))
 }
 
@@ -351,7 +366,8 @@ func runTool(_ args: [String]) async -> Int32 {
     var failures = 0
     for url in setup.images {
         do {
-            let result = try await processImage(url, truth: groundTruth(for: url, shared: setup.sharedTruth))
+            let truth = groundTruth(for: url, shared: setup.sharedTruth, truthDir: setup.truthDir)
+            let result = try await processImage(url, truth: truth)
             results.append(result)
             report(result, show: setup.show)
             if let outDir = setup.outDir {

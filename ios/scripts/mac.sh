@@ -11,9 +11,10 @@
 #   build             pull, then compile the iOS app for the simulator (no signing, no password).
 #   test              pull, then run the unit tests on an iOS simulator.
 #   logs [lines]      Copy the app's Documents/logs folder off the iPhone, print the log tail.
-#   captures          Copy the app's Documents/captures off the iPhone, make JPEG copies.
+#   captures [folder] Copy the app's Documents/<folder> (default captures; or fixtures) off the
+#                     iPhone, make JPEG copies.
 #   ocr [folder] [opts]  Apple Vision OCR + CER over a folder (default ios/build/phone/captures).
-#                     opts: --truth <file> | --out <dir> | --show  (see tools/ocr.swift)
+#                     opts: --truth <file> | --truth-dir <dir> | --out <dir> | --show  (tools/ocr.swift)
 #
 # Exit codes:
 #   0 ok · 1 build, test or copy failed · 2 bad usage · 3 iMac clone has local edits
@@ -162,18 +163,19 @@ case "$cmd" in
     ;;
 
   captures)
-    # Copies Documents/captures off the phone (HEIC from the glasses) and makes
-    # JPEG copies for viewing and for the fixture set.
+    # Copies Documents/<folder> off the phone (HEIC from the glasses; "captures" or
+    # "fixtures") and makes JPEG copies for viewing.
+    folder="${2:-captures}"
     OUT="$REPO/ios/build/phone"
-    rm -rf "$OUT/captures" "$OUT/captures-jpg" && mkdir -p "$OUT/captures-jpg"
-    copy_from_phone Documents/captures "$OUT/captures"
-    for f in "$OUT/captures"/*; do
+    rm -rf "${OUT:?}/$folder" "${OUT:?}/$folder-jpg" && mkdir -p "$OUT/$folder-jpg"
+    copy_from_phone "Documents/$folder" "$OUT/$folder"
+    for f in "$OUT/$folder"/*; do
       [ -f "$f" ] || continue
       base="$(basename "$f")"
-      sips -s format jpeg -s formatOptions 85 "$f" --out "$OUT/captures-jpg/${base%.*}.jpg" >/dev/null
+      sips -s format jpeg -s formatOptions 85 "$f" --out "$OUT/$folder-jpg/${base%.*}.jpg" >/dev/null
     done
-    say "JPEG copies in ios/build/phone/captures-jpg:"
-    ls -l "$OUT/captures-jpg"
+    say "Originals in ios/build/phone/$folder, JPEG copies in ios/build/phone/$folder-jpg:"
+    ls -l "$OUT/$folder-jpg"
     ;;
 
   ocr)
@@ -229,7 +231,7 @@ case "$cmd" in
     ;;
 
   *)
-    echo "usage: mac.sh doctor | pull | switch <branch> | build | test | logs [lines] | captures | ocr [folder] [opts]" >&2
+    echo "usage: mac.sh doctor | pull | switch <branch> | build | test | logs [lines] | captures [folder] | ocr [folder] [opts]" >&2
     exit 2
     ;;
 esac

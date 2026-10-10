@@ -249,16 +249,37 @@ final class AppStore {
     // MARK: - App lifecycle
 
     /// Copy-on-open (M0 U5): scans that finished in the background go on the clipboard now.
-    func appBecameActive() {
+    /// Called when the scene and when the app become active (either can come first); a write
+    /// iOS drops is tried once more shortly after.
+    func appBecameActive(via trigger: String, retry: Bool = true) {
         let waiting = history.awaitingAppOpen
+        guard !waiting.isEmpty else { return }
         let copied = phoneTarget.copyAwaiting(waiting)
-        guard !copied.isEmpty else { return }
+        guard !copied.isEmpty else {
+            log.add("copy on open didn't land (\(trigger)) · \(waiting.count) waiting · app \(Self.appStateName)")
+            if retry {
+                Task {
+                    try? await Task.sleep(for: .milliseconds(500))
+                    appBecameActive(via: "\(trigger) retry", retry: false)
+                }
+            }
+            return
+        }
         for id in copied {
             history.update(id) { $0.delivery = .delivered(.copied) }
         }
-        log.add("copied \(copied.count) waiting scan(s) on open")
+        log.add("copied \(copied.count) waiting scan(s) on open (\(trigger))")
         if router.isOnMain {
             router.show(.main(mainModel()))
+        }
+    }
+
+    private static var appStateName: String {
+        switch UIApplication.shared.applicationState {
+        case .active: "active"
+        case .inactive: "inactive"
+        case .background: "background"
+        @unknown default: "unknown"
         }
     }
 

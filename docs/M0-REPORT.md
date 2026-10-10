@@ -1,6 +1,6 @@
 # M0 report: spike test results
 
-> **Status: in progress.** Two hardware sessions on 2026-10-09. All phone-side questions are answered. Left: U8, the Wi-Fi check, and the real-slide benchmark. Spike code lives on the `spike/m0` branch (the "CARBON Lab" app). Logs come off the phone with `mac.sh logs`.
+> **Status: in progress.** Hardware sessions on 2026-10-09 and 2026-10-10. All phone-side questions are answered, and the slide benchmark has run. **No capture configuration meets both targets (see "Slide benchmark"), so a decision from Russell is needed.** Left: that decision, the Wi-Fi check, and U8. Spike code lives on the `spike/m0` branch (the "CARBON Lab" app). Logs come off the phone with `mac.sh logs`.
 > SPEC Section 1.4 lists the questions. Section 8.3 defines the capture benchmark.
 
 ## Summary
@@ -17,11 +17,14 @@
 | U8 | Can the Zephyrus act as a BLE peripheral? | **Flag says yes, but GATT advertising fails** | 🟡 Partial |
 | U9 | Can CARBON restart a session after the hinges reopen? | **Yes, automatically.** Lab screen back 2.1 s after the glasses reconnect, without touching the phone | ✅ Answered |
 | U10 | Does the first pinch on a sleeping display deliver `select`? | **Moot.** The display never slept during a session (4+ min with no app sends) | ✅ Answered (as observed) |
-| Bench | Capture configuration | **Only LARGE/MEDIUM is under 6 s** in a first, easy-scene run | 🟡 Preliminary |
+| Bench | Capture configuration | **None passes both targets.** LARGE/MEDIUM: p95 7.0 s, CER 9.4%. LARGE/HIGH: CER 3.7%, p95 14.2 s | 🔴 Decision needed |
 
-**Biggest risk found:** photo transfer runs over **Bluetooth at about 30–65 KB/s**, so photo *size* drives latency.
-- Full resolution takes **10–16 s**, well past the 7 s promise.
-- LARGE/MEDIUM took about 3 s, but only on an easy scene. It still has to be proven on dense slides, including whether the text is accurate enough.
+**Biggest risk found:** photo transfer runs over **Bluetooth at roughly 25–65 KB/s**, so photo *size* drives latency.
+- MEDIUM quality is fast enough to be close to budget, but it erases thin and faint text.
+- HIGH quality keeps that text but doubles the transfer time.
+- The Wi-Fi path, if it can be unlocked, is the one lever that changes this.
+
+**Reading order needs deskew.** Head tilt of 1–3° broke SPEC 8.4's ordering on wide rows and long lines. Straightening the line positions first fixed it (`tools/ocr.swift --deskew`). **Proposed SPEC 8.4 change.**
 
 ---
 
@@ -145,6 +148,80 @@ The file size, and so the latency, depends on how much detail is in view. A dens
 
 **Tentative choice:** LARGE/MEDIUM, if it reads real slides accurately and they stay small enough. If not, the options are a longer latency promise, LARGE/HIGH (about 7 s on an easy scene), or the Wi-Fi path.
 
+## Slide benchmark (2026-10-10)
+
+**Setup**
+- The 10-slide fixture deck (`tools/fixture-deck/index.html`), with ground truth generated from the same source (`ios/CarbonTests/Fixtures/slides/`).
+- Shown in a browser window on a 27" monitor, captured from about desk distance with the slide filling roughly 45% of the frame width. That's comparable to a projected slide seen from a middle row.
+- One capture per slide per config (10 per config), using the lab's fixture mode. The photos are kept locally in the gitignored `ios/CarbonTests/Fixtures/photos/`.
+- Scored with `mac.sh ocr … --truth-dir … --deskew` (Mac Vision, SPEC 8.4 settings).
+- **Scorer sanity check:** on perfect 1920×1080 screenshots of the deck, 9 of 10 slides score CER 0.0000 and the code slide 0.0052. So the ground truth matches how Vision reads, and the errors below come from the capture.
+
+**Time from request to photo on the phone**
+
+| Config | Median size | Median | p95 | Max |
+|---|---|---|---|---|
+| LARGE / MEDIUM | 153 KB | **5.5 s** | **7.0 s** | 7.0 s |
+| LARGE / HIGH | 224 KB | 11.3 s | 14.2 s | 14.9 s |
+| FULL / MEDIUM | 471 KB | 12.4 s | 14.0 s | 14.0 s |
+
+Add about 0.3 s of OCR (Mac Vision measured 0.25–0.5 s per photo) plus the trigger and display overhead for the full pinch-to-result time.
+
+**Accuracy (CER), with deskew and bullet glyphs ignored**
+
+| Slide | What it tests | LARGE/MEDIUM | LARGE/HIGH | FULL/MEDIUM |
+|---|---|---|---|---|
+| 1 | Title, subtitle, meta line | 1.9% | 0.0% | 1.9% |
+| 2 | Bullets | 0.0% | 0.0% | 0.0% |
+| 3 | Dense small paragraph | 0.0% | 0.0% | 0.5% |
+| 4 | Numbered list with sub-items | 0.0% | 2.2% | 1.1% |
+| 5 | Table | **39.3%** (columns missing) | 5.3% | **28.0%** |
+| 6 | Code | 15.2% | 10.0% | 8.9% |
+| 7 | Numbers and symbols | 0.0% | 0.0% | 2.2% |
+| 8 | Bullets + faint small caption | **29.5%** (caption lost) | 1.3% | **29.5%** |
+| 9 | Footer: course code, URL, slide number | 7.7% | 18.6% | 18.6% |
+| 10 | Dark theme | 0.0% | 0.0% | 0.0% |
+| **Mean** | | **9.4%** | **3.7%** | **9.1%** |
+
+**What this shows**
+- **Ordinary slide text is essentially solved, even at LARGE/MEDIUM:** 0–1.9% on titles, bullets, dense paragraphs, numbered lists, numbers and dark slides, once deskew is on.
+- **MEDIUM compression erases thin or faint text.** Whole table columns ("Round 2", "Change", the fractions) and the grey caption vanished at MEDIUM, at both LARGE and FULL. At HIGH they come back.
+- **Tiny edge text** (the footer URL and "Slide 9 / 10") is unreliable at any setting. Clean mode (M4) drops it anyway.
+- **Code** suffers from Vision's language correction: `{`→`(`, `UUID`→`UUlD`, `func log`→`fune 10g`. That's not a capture problem.
+- **FULL/MEDIUM is never the better choice:** slower than LARGE/MEDIUM, and less accurate than LARGE/HIGH.
+
+**SPEC 8.3 rule result:** no configuration has p95 ≤ 6.0 s. LARGE/MEDIUM is the closest at 7.0 s. The rule can't pick a winner, so this goes to Russell (see "Decisions needed").
+
+### Reading order: deskew (proposed SPEC 8.4 change)
+
+- Photos are tilted by **1.0–3.2°** (median about 1.9°), right side higher, from natural head tilt.
+- SPEC 8.4 groups lines into rows by axis-aligned boxes. A tilted long line's box is taller than the text, so neighbouring lines overlap by more than 50% and merge. On the paragraph slide that interleaved lines (CER 28–50%). On the table, rows chained into columns.
+- **Fix (now in `tools/ocr.swift --deskew`):**
+  1. Estimate the tilt as a weighted median of (a) line slopes from Vision's corner points, counting only the longer lines and skipping exactly-level quads, and (b) centre-to-centre slopes of side-by-side items on roughly the same row.
+  2. Rotate every line's quadrilateral by the tilt.
+  3. Apply SPEC 8.4's grouping unchanged.
+- Result: the paragraph went from 28–50% to **0%**, and the table at LARGE/HIGH from 50% to 5%.
+- Vision returned **exactly level quads for every line** on the table photo, even though it was tilted. That's why the neighbour-slope evidence is needed.
+- **Proposed decision:** SPEC 8.4 gains a deskew step before grouping (Reader v1, M1).
+
+### Bullets
+
+Vision **does not output list bullets** at all: "•" never appears in its results. The As-is formatter (SPEC 8.5) can't normalize glyphs that never arrive. **Proposed decision:**
+- v1 output has no bullet glyphs.
+- If bullets matter later, detect them from layout: a consistent left indent with a gap to a small mark.
+- The CER scorer ignores bullet glyphs.
+
+## Decisions needed (Russell)
+
+1. **Capture configuration.** No option meets both p95 ≤ 6 s and CER ≤ 2%:
+   - **A. LARGE/MEDIUM** (recommended default). About 5.5 s median, 7 s p95. Near-perfect on normal slide text. Loses thin table digits, faint captions and tiny footers.
+   - **B. LARGE/HIGH.** Best accuracy (3.7%, and solid on tables and captions), but about 11 s median, 14 s p95.
+   - **C. Both.** A as the normal scan, plus a "detail scan" on a different trigger (for example a camera-button hold) that uses B.
+   - **D.** First check whether the **Wi-Fi path** can be unlocked (step 2 below). If photos move over Wi-Fi, HIGH or even FULL may fit the budget and the trade-off goes away.
+2. **Promise.** SPEC says p95 ≤ 7 s. With A, the capture alone is about 7.0 s at p95, so the full pinch-to-paste time will be around 7.5 s. Relax the promise to ≤ 8 s, or keep 7 s as the goal and accept a miss until Wi-Fi?
+3. **Deskew and bullets:** approve the two proposed SPEC changes above.
+4. **Fixture photos:** keep them local-only (current state), or commit them under `ios/CarbonTests/Fixtures/`? They show the lab and the laptop screen, so re-shoot with a clean background before committing.
+
 ## Other findings
 
 - **`datAppOnTheGlassesUpdateRequired`**: every session failed until the toolkit app *on the glasses* was updated from Meta AI. Meta AI has two devices on this account (old Ray-Ban Meta + Display). The docs warn that registration installs the glasses app on only one of them.
@@ -154,11 +231,7 @@ The file size, and so the latency, depends on how much detail is in view. A dens
 
 ## Remaining M0 work
 
-1. **Fixtures and the real benchmark (the big one):**
-   - ≥10 slides (projector, whiteboard, monitor), photographed from a middle-row seat in a real room.
-   - Typed ground truth for each slide.
-   - 10 runs per config, at least LARGE/MEDIUM and LARGE/HIGH.
-   - Then `mac.sh captures` + `mac.sh ocr` for CER. The tool is built and smoke-tested.
-2. **At the iMac (2 min):** the Carbon target's Signing & Capabilities → + Capability. Is **Hotspot** offered to the Personal Team? This decides whether the Wi-Fi path is even possible.
+1. ~~Fixtures and the real benchmark~~: done 2026-10-10 (see "Slide benchmark").
+2. **At the iMac (2 min):** the Carbon target's Signing & Capabilities → + Capability. Is **Hotspot** offered to the Personal Team? This decides whether the Wi-Fi path (decision option D) is even possible.
 3. **U8 (laptop only):** Bluetooth off and on, retest, then retest with other devices disconnected.
-4. **Russell reads this report** and agrees or disagrees with the proposed decisions (U2, U3, U5, U6, U9). They then go into the SPEC decision log.
+4. **Russell reads this report** and decides "Decisions needed" plus the proposed decisions (U2, U3, U5, U6, U9, deskew, bullets). They then go into the SPEC decision log.

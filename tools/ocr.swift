@@ -156,6 +156,13 @@ func processImage(_ url: URL, truth: String?, deskew: Bool) async throws -> Imag
     let raw = try await recognizeLines(in: image, orientation: orientation)
     let ocrMs = (ProcessInfo.processInfo.systemUptime - start) * 1000
     let (lines, skew) = layoutLines(raw, deskew: deskew)
+    if ProcessInfo.processInfo.environment["OCR_LINES"] != nil {
+        for line in raw {
+            let (a, b) = (line.corners[0], line.corners[1])
+            let degrees = atan2(b.y - a.y, b.x - a.x) * 180 / .pi
+            print(String(format: "  LINE %6.2fdeg len=%5.0f x=%5.0f y=%5.0f  %@", degrees, hypot(b.x - a.x, b.y - a.y), a.x, a.y, line.text))
+        }
+    }
     let ordered = readingOrderText(lines)
     let noText = ordered.filter { !$0.isWhitespace }.count < 2
     let text = noText ? "" : ordered

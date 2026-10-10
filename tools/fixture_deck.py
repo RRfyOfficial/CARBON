@@ -3,6 +3,7 @@
 Writes:
   tools/fixture-deck/index.html             the deck (open in a browser, full screen, arrow keys)
   ios/CarbonTests/Fixtures/slides/slideNN.txt   exact text of each slide, in reading order
+  ios/Carbon/Resources/Fixtures/slideNN.txt     the same, bundled for the app's on-device fixture check
 
 Run from the repo root:  python tools/fixture_deck.py
 Standard library only. Edit SLIDES below, then re-run; never edit the outputs by hand.
@@ -14,6 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DECK = ROOT / "tools" / "fixture-deck" / "index.html"
 TRUTH_DIR = ROOT / "ios" / "CarbonTests" / "Fixtures" / "slides"
+APP_TRUTH_DIR = ROOT / "ios" / "Carbon" / "Resources" / "Fixtures"
 
 # Each slide: a theme and a list of blocks, top to bottom.
 # Block kinds: title, subtitle, meta, bullets, numbered, paragraph, table, code, lines, caption, footer.
@@ -291,11 +293,13 @@ TEMPLATE = """<!doctype html>
 def main():
     DECK.parent.mkdir(parents=True, exist_ok=True)
     DECK.write_text(deck_html(), encoding="utf-8", newline="\n")
-    TRUTH_DIR.mkdir(parents=True, exist_ok=True)
-    for n, slide in enumerate(SLIDES, start=1):
-        path = TRUTH_DIR / f"slide{n:02d}.txt"
-        path.write_text("\n".join(truth_lines(slide)) + "\n", encoding="utf-8", newline="\n")
-    print(f"wrote {DECK.relative_to(ROOT)} and {len(SLIDES)} truth files in {TRUTH_DIR.relative_to(ROOT)}")
+    for folder in (TRUTH_DIR, APP_TRUTH_DIR):
+        folder.mkdir(parents=True, exist_ok=True)
+        for n, slide in enumerate(SLIDES, start=1):
+            path = folder / f"slide{n:02d}.txt"
+            path.write_text("\n".join(truth_lines(slide)) + "\n", encoding="utf-8", newline="\n")
+    print(f"wrote {DECK.relative_to(ROOT)} and {len(SLIDES)} truth files in "
+          f"{TRUTH_DIR.relative_to(ROOT)} and {APP_TRUTH_DIR.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":

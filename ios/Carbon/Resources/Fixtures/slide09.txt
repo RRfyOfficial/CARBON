@@ -1,0 +1,7 @@
+Severity ratings
+0: Not a usability problem
+1: Cosmetic, fix if time allows
+2: Minor, low priority
+3: Major, high priority
+4: Catastrophe, must fix before release
+CMSC 434 Fall 2026 https://cs.example.edu/434 Slide 9 / 10

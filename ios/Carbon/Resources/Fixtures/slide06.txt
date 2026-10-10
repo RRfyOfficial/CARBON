@@ -1,0 +1,10 @@
+Logging task events (Swift)
+struct TaskEvent: Codable {
+    let id: UUID
+    let name: String
+    let startedAt: Date
+    var errors = 0
+}
+func log(_ e: TaskEvent) {
+    print("[\(e.name)] errors=\(e.errors)")
+}

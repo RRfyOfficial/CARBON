@@ -3,6 +3,7 @@
 
 import Foundation
 import Observation
+import UIKit
 import MWDATInputs
 
 @Observable
@@ -10,6 +11,7 @@ final class AppStore {
     let log: EventLog
     let history: HistoryStore
     let session: GlassesSession
+    let fixtures = FixtureCheck()
     @ObservationIgnored let router: GlassesRouter
     @ObservationIgnored let pipeline: Pipeline
     @ObservationIgnored private let ticks = TickSynth()
@@ -27,10 +29,14 @@ final class AppStore {
             pipeline.keepCaptures = keepCaptures
         }
     }
+    var onboardingDone: Bool {
+        didSet { UserDefaults.standard.set(onboardingDone, forKey: Keys.onboardingDone) }
+    }
 
     private enum Keys {
         static let cameraHintSeen = "cameraHintSeen"
         static let keepCaptures = "keepCaptures"
+        static let onboardingDone = "onboardingDone"
     }
 
     init() {
@@ -51,6 +57,7 @@ final class AppStore {
         )
         self.cameraHintSeen = UserDefaults.standard.bool(forKey: Keys.cameraHintSeen)
         self.keepCaptures = UserDefaults.standard.bool(forKey: Keys.keepCaptures)
+        self.onboardingDone = UserDefaults.standard.bool(forKey: Keys.onboardingDone)
         pipeline.keepCaptures = keepCaptures
 
         session.onDisplayReady = { [weak self] display in self?.router.attach(display) }
@@ -129,6 +136,7 @@ final class AppStore {
         switch result {
         case .success(let scan):
             history.add(scan)
+            fixtures.record(scan)
             if scan.delivery == .awaitingAppOpen {
                 ticks.play(.done)
                 router.show(.error(.openToCopy, elapsed: elapsed))
@@ -168,6 +176,67 @@ final class AppStore {
         default:
             break
         }
+    }
+
+    // MARK: - Phone controls
+
+    /// The SESSION panel's big button: START / RESUME, or STOP while anything is running.
+    func startOrStop() {
+        if session.phase == .stopped {
+            Task {
+                // Ask for the glasses camera first when they're connected; otherwise start waiting.
+                if session.glasses.level == .ready, !(await session.ensureCameraPermission()) {
+                    log.add("camera permission not granted")
+                }
+                session.start()
+            }
+        } else {
+            session.stop()
+        }
+    }
+
+    /// Copies a scan from the phone app; also settles it if it was waiting for the app to open.
+    func copy(_ scan: Scan) {
+        UIPasteboard.general.string = scan.text
+        if scan.delivery == .awaitingAppOpen {
+            history.update(scan.id) { $0.delivery = .delivered(.copied) }
+        }
+    }
+
+    /// p50 / p95 of trigger-to-delivered over the last 20 fast scans, in seconds (SPEC 8.6).
+    var latencyStats: (p50: Double, p95: Double, count: Int)? {
+        let totals = history.scans.filter { $0.kind == .fast }.prefix(20).compactMap(\.timings.delivered)
+        guard !totals.isEmpty else { return nil }
+        let sorted = totals.map { Double($0) / 1_000 }.sorted()
+        func percentile(_ p: Double) -> Double {
+            let k = p * Double(sorted.count - 1)
+            let (low, high) = (Int(k), min(Int(k) + 1, sorted.count - 1))
+            return sorted[low] + (sorted[high] - sorted[low]) * (k - Double(low))
+        }
+        return (percentile(0.5), percentile(0.95), sorted.count)
+    }
+
+    /// Stage timings (and fixture results) as CSV for the share sheet. Lengths only, no scan text.
+    var diagnosticsCSV: String {
+        var rows = ["time,kind,chars,photo_bytes,capture_ms,first_byte_ms,photo_ms,read_ms,formatted_ms,delivered_ms,delivery"]
+        for scan in history.scans.reversed() {
+            let t = scan.timings
+            let cells: [String] = [
+                scan.createdAt.ISO8601Format(), scan.kind.rawValue, "\(scan.charCount)", scan.photoBytes.map(String.init) ?? "",
+                t.captureRequested.map(String.init) ?? "", t.firstByte.map(String.init) ?? "", t.photoReceived.map(String.init) ?? "",
+                t.readDone.map(String.init) ?? "", t.formatted.map(String.init) ?? "", t.delivered.map(String.init) ?? "",
+                "\(scan.delivery)".replacingOccurrences(of: ",", with: ";"),
+            ]
+            rows.append(cells.joined(separator: ","))
+        }
+        if !fixtures.results.isEmpty {
+            rows.append("")
+            rows.append("fixture_slide,cer,total_ms,chars")
+            for result in fixtures.results {
+                rows.append("\(result.slide),\(result.cer.map { String(format: "%.4f", $0) } ?? ""),\(result.totalMs.map(String.init) ?? ""),\(result.chars)")
+            }
+        }
+        return rows.joined(separator: "\n")
     }
 
     // MARK: - App lifecycle

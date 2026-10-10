@@ -11,6 +11,7 @@
 #   build             pull, then compile the iOS app for the simulator (no signing, no password).
 #   test              pull, then run the unit tests on an iOS simulator.
 #   logs [lines]      Copy the app's Documents/logs folder off the iPhone, print the log tail.
+#   captures          Copy the app's Documents/captures off the iPhone, make JPEG copies.
 #
 # Exit codes:
 #   0 ok · 1 build, test or copy failed · 2 bad usage · 3 iMac clone has local edits
@@ -65,6 +66,25 @@ do_pull() {
   git fetch --quiet origin
   git pull --ff-only --quiet
   say "Synced $(git rev-parse --abbrev-ref HEAD) to $(git log -1 --format='%h %s')"
+}
+
+copy_from_phone() {
+  # copy_from_phone <path in the app's data container> <local destination>
+  local env_file="$REPO/ios/.env.local" xcconfig="$REPO/ios/Config/Local.xcconfig" bundle_id
+  if [ ! -f "$env_file" ] || [ ! -f "$xcconfig" ]; then
+    say "Needs ios/.env.local (CARBON_UDID) and ios/Config/Local.xcconfig (CARBON_BUNDLE_ID)."
+    exit 2
+  fi
+  # shellcheck disable=SC1090
+  source "$env_file"
+  bundle_id="$(sed -n 's/^CARBON_BUNDLE_ID *= *//p' "$xcconfig" | tr -d '[:space:]')"
+  if ! xcrun devicectl device copy from --quiet \
+      --device "$CARBON_UDID" \
+      --domain-type appDataContainer --domain-identifier "$bundle_id" \
+      --source "$1" --destination "$2" >/dev/null; then
+    say "Couldn't copy $1 from the phone. Is it unlocked, on the lab network, and has the app run once?"
+    exit 1
+  fi
 }
 
 pick_simulator() {
@@ -128,30 +148,30 @@ case "$cmd" in
   logs)
     # The app keeps its diagnostic files in Documents/logs. devicectl copies them
     # off the phone over the network (read-only for the phone, no password).
-    ENV_FILE="$REPO/ios/.env.local"
-    XCCONFIG="$REPO/ios/Config/Local.xcconfig"
-    if [ ! -f "$ENV_FILE" ] || [ ! -f "$XCCONFIG" ]; then
-      say "Needs ios/.env.local (CARBON_UDID) and ios/Config/Local.xcconfig (CARBON_BUNDLE_ID)."
-      exit 2
-    fi
-    # shellcheck disable=SC1090
-    source "$ENV_FILE"
-    BUNDLE_ID="$(sed -n 's/^CARBON_BUNDLE_ID *= *//p' "$XCCONFIG" | tr -d '[:space:]')"
     OUT="$REPO/ios/build/phone"
-    rm -rf "$OUT" && mkdir -p "$OUT"
-    if ! xcrun devicectl device copy from --quiet \
-        --device "$CARBON_UDID" \
-        --domain-type appDataContainer --domain-identifier "$BUNDLE_ID" \
-        --source Documents/logs --destination "$OUT/logs" >/dev/null; then
-      say "Couldn't copy from the phone. Is it unlocked, on the lab network, and has the app run once?"
-      exit 1
-    fi
+    rm -rf "$OUT/logs" && mkdir -p "$OUT"
+    copy_from_phone Documents/logs "$OUT/logs"
     say "Copied to ios/build/phone/logs:"
     ls -l "$OUT/logs"
     if [ -f "$OUT/logs/lab.log" ]; then
       say "Last ${2:-150} lines of lab.log:"
       tail -n "${2:-150}" "$OUT/logs/lab.log"
     fi
+    ;;
+
+  captures)
+    # Copies Documents/captures off the phone (HEIC from the glasses) and makes
+    # JPEG copies for viewing and for the fixture set.
+    OUT="$REPO/ios/build/phone"
+    rm -rf "$OUT/captures" "$OUT/captures-jpg" && mkdir -p "$OUT/captures-jpg"
+    copy_from_phone Documents/captures "$OUT/captures"
+    for f in "$OUT/captures"/*; do
+      [ -f "$f" ] || continue
+      base="$(basename "$f")"
+      sips -s format jpeg -s formatOptions 85 "$f" --out "$OUT/captures-jpg/${base%.*}.jpg" >/dev/null
+    done
+    say "JPEG copies in ios/build/phone/captures-jpg:"
+    ls -l "$OUT/captures-jpg"
     ;;
 
   build)
@@ -199,7 +219,7 @@ case "$cmd" in
     ;;
 
   *)
-    echo "usage: mac.sh doctor | pull | switch <branch> | build | test | logs [lines]" >&2
+    echo "usage: mac.sh doctor | pull | switch <branch> | build | test | logs [lines] | captures" >&2
     exit 2
     ;;
 esac

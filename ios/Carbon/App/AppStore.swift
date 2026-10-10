@@ -126,6 +126,22 @@ final class AppStore {
         }
     }
 
+    /// "214 CHARS COPIED TO PHONE" after switching TARGET to PHONE copied the latest laptop scan.
+    private(set) var targetSwitchNote: String?
+
+    /// TARGET picked in the phone app. Switching to PHONE also puts the latest laptop scan on the
+    /// phone clipboard (Russell, M2); CARBON is on screen, so iOS allows the copy. Switching to the
+    /// laptop never resends anything: with AUTOPASTE it would type into whatever window is active.
+    func chooseTarget(laptop: Bool) {
+        let wasLaptop = usesLaptop
+        targetIsLaptop = laptop
+        targetSwitchNote = nil
+        guard wasLaptop, !laptop, let last = history.latest, case .laptop = last.target else { return }
+        copy(last)
+        targetSwitchNote = "LAST SCAN (\(last.charCount) CHARS) COPIED TO PHONE"
+        log.add("target → phone · latest laptop scan copied to the phone")
+    }
+
     /// Drops the paired computer; the target goes back to the phone.
     func forgetLaptop() {
         link.forget()

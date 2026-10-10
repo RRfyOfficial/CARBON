@@ -16,6 +16,8 @@
 #                     iPhone, make JPEG copies.
 #   ocr [folder] [opts]  Apple Vision OCR + CER over a folder (default ios/build/phone/captures).
 #                     opts: --truth <file> | --truth-dir <dir> | --out <dir> | --show  (tools/ocr.swift)
+#   simocr [folder] [opts]  The same tool built for the iOS simulator, so it reads with the iPhone's
+#                     Vision rather than the Mac's. Boots the test simulator if needed, shuts it after.
 #
 # Exit codes:
 #   0 ok · 1 build, test or copy failed · 2 bad usage · 3 iMac clone has local edits
@@ -200,6 +202,46 @@ case "$cmd" in
     swift "$REPO/tools/ocr.swift" "$folder" "${@:3}"
     ;;
 
+  simocr)
+    # The phone's Vision dropped lines that the Mac's read (M1), so this runs tools/ocr.swift inside
+    # the iOS simulator: iOS's Vision, though still the simulator's runtime and not the phone's.
+    folder="${2:-ios/build/phone/captures}"
+    case "$folder" in /*) ;; *) folder="$REPO/$folder" ;; esac
+    # The spawned process doesn't start in the repo, so relative option paths are made absolute.
+    args=()
+    prev=""
+    for arg in "${@:3}"; do
+      case "$prev" in
+        --truth|--truth-dir|--out) case "$arg" in /*) ;; *) arg="$REPO/$arg" ;; esac ;;
+      esac
+      args+=("$arg")
+      prev="$arg"
+    done
+    SIM="$(pick_simulator || true)"
+    if [ -z "$SIM" ]; then
+      say "No iPhone simulator on iOS 26+. Run: mac.sh doctor"
+      exit 1
+    fi
+    SIM_UDID="$(echo "$SIM" | cut -d'|' -f1)"
+    BIN="$REPO/ios/build/simocr/ocr"
+    mkdir -p "$(dirname "$BIN")"
+    say "Compiling tools/ocr.swift for the iOS $(echo "$SIM" | cut -d'|' -f3) simulator..."
+    xcrun -sdk iphonesimulator swiftc -O -target "$(uname -m)-apple-ios26.0-simulator" \
+      "$REPO/tools/ocr.swift" -o "$BIN"
+    booted_here=0
+    if ! xcrun simctl list devices booted | grep -q "$SIM_UDID"; then
+      say "Booting $(echo "$SIM" | cut -d'|' -f2)..."
+      xcrun simctl boot "$SIM_UDID"
+      booted_here=1
+    fi
+    # simctl passes SIMCTL_CHILD_* variables to the child without the prefix.
+    if [ -n "${OCR_LINES:-}" ]; then export SIMCTL_CHILD_OCR_LINES=1; fi
+    status=0
+    xcrun simctl spawn "$SIM_UDID" "$BIN" "$folder" ${args[@]+"${args[@]}"} || status=$?
+    if [ "$booted_here" = 1 ]; then xcrun simctl shutdown "$SIM_UDID" || true; fi
+    exit "$status"
+    ;;
+
   build)
     check_disk
     do_pull
@@ -245,7 +287,7 @@ case "$cmd" in
     ;;
 
   *)
-    echo "usage: mac.sh doctor | pull | switch <branch> | build | test | logs [lines] | history | captures [folder] | ocr [folder] [opts]" >&2
+    echo "usage: mac.sh doctor | pull | switch <branch> | build | test | logs [lines] | history | captures [folder] | ocr [folder] [opts] | simocr [folder] [opts]" >&2
     exit 2
     ;;
 esac

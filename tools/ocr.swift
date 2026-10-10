@@ -1,7 +1,11 @@
 #!/usr/bin/env swift
 // CARBON M0: Apple Vision OCR accuracy (CER) over a folder of fixture photos.
 // Implements SPEC 8.4 "Reader v1" (Vision settings + reading order) and SPEC 8.3 (CER).
-// Usage: swift ocr.swift <folder> [--truth <file> | --truth-dir <dir>] [--deskew] [--out <dir>] [--show]
+// Usage: swift ocr.swift <folder> [--truth <file> | --truth-dir <dir>] [--deskew] [--rotate <deg> | --level]
+//        [--out <dir>] [--show]
+// --rotate turns the photo's pixels before reading (negative = clockwise, which levels text rising to the
+// right). --level reads once, measures the tilt, then reads the photo again with its pixels levelled.
+// Also builds for the iOS simulator (mac.sh simocr), to read with the iPhone's Vision instead of the Mac's.
 
 import CoreGraphics
 import Foundation
@@ -11,7 +15,7 @@ import Vision
 // MARK: - Types
 
 enum Tool {
-    static let usage = "usage: swift ocr.swift <folder> [--truth <file> | --truth-dir <dir>] [--deskew] [--out <dir>] [--show]"
+    static let usage = "usage: swift ocr.swift <folder> [--truth <file> | --truth-dir <dir>] [--deskew] [--rotate <deg> | --level] [--out <dir>] [--show]"
     static let imageExtensions: Set<String> = ["heic", "jpg", "jpeg", "png"]
     static let resolutions: Set<String> = ["LARGE", "FULL"]
     static let qualities: Set<String> = ["MEDIUM", "HIGH"]
@@ -29,6 +33,8 @@ struct Setup {
     let outDir: URL?
     let show: Bool
     let deskew: Bool
+    let rotateDegrees: Double?
+    let level: Bool
 }
 
 /// Capture settings parsed from `<anything>-<RES>-<QUALITY>.<ext>`, or "other".
@@ -77,6 +83,8 @@ struct ImageResult {
     let ocrMs: Double
     let cer: Double?
     let skewDegrees: Double?
+    /// How far the pixels were turned before the final read (--rotate or --level), nil if not at all.
+    let rotatedDegrees: Double?
 }
 
 // MARK: - Image loading and Vision
@@ -92,6 +100,25 @@ func loadImage(_ url: URL) throws -> (CGImage, CGImagePropertyOrientation) {
     let properties = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [String: Any]
     let raw = (properties?[kCGImagePropertyOrientation as String] as? NSNumber)?.uint32Value ?? 1
     return (image, CGImagePropertyOrientation(rawValue: raw) ?? .up)
+}
+
+/// The image turned by `radians` around its centre (negative = clockwise on screen), on a canvas
+/// big enough to keep every corner; the uncovered corners are white.
+func rotated(_ image: CGImage, by radians: CGFloat) -> CGImage? {
+    let (w, h) = (CGFloat(image.width), CGFloat(image.height))
+    let (c, s) = (abs(cos(radians)), abs(sin(radians)))
+    let (width, height) = (Int((w * c + h * s).rounded(.up)), Int((w * s + h * c).rounded(.up)))
+    guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: CGColorSpaceCreateDeviceRGB(),
+                                  bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
+    context.setFillColor(red: 1, green: 1, blue: 1, alpha: 1)
+    context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+    context.interpolationQuality = .high
+    // CoreGraphics is y-up, so a negative angle turns the picture clockwise.
+    context.translateBy(x: CGFloat(width) / 2, y: CGFloat(height) / 2)
+    context.rotate(by: radians)
+    context.draw(image, in: CGRect(x: -w / 2, y: -h / 2, width: w, height: h))
+    return context.makeImage()
 }
 
 @available(macOS 15.0, *)
@@ -169,10 +196,25 @@ func layoutLines(_ raw: [RawLine], deskew: Bool) -> (lines: [Line], skew: CGFloa
 }
 
 @available(macOS 15.0, *)
-func processImage(_ url: URL, truth: String?, deskew: Bool) async throws -> ImageResult {
-    let (image, orientation) = try loadImage(url)
+func processImage(_ url: URL, truth: String?, setup: Setup) async throws -> ImageResult {
+    let deskew = setup.deskew
+    let (decoded, orientation) = try loadImage(url)
+    var image = decoded
     let start = ProcessInfo.processInfo.systemUptime
-    let raw = try await recognizeLines(in: image, orientation: orientation)
+    // Turning pixels only makes sense in the stored grid, so only for upright photos (the glasses deliver .up).
+    var turned: Double?
+    if let degrees = setup.rotateDegrees, orientation == .up, let turnedImage = rotated(decoded, by: degrees * .pi / 180) {
+        image = turnedImage
+        turned = degrees
+    }
+    var raw = try await recognizeLines(in: image, orientation: orientation)
+    if setup.level, orientation == .up {
+        let theta = estimateSkew(raw)
+        if abs(theta) >= 0.2 * .pi / 180, let levelled = rotated(image, by: theta) {
+            raw = try await recognizeLines(in: levelled, orientation: orientation)
+            turned = Double(theta) * 180 / .pi
+        }
+    }
     let ocrMs = (ProcessInfo.processInfo.systemUptime - start) * 1000
     let (lines, skew) = layoutLines(raw, deskew: deskew)
     if ProcessInfo.processInfo.environment["OCR_LINES"] != nil {
@@ -192,7 +234,8 @@ func processImage(_ url: URL, truth: String?, deskew: Bool) async throws -> Imag
         noText: noText,
         ocrMs: ocrMs,
         cer: truth.flatMap { characterErrorRate(ocr: text, truth: $0) },
-        skewDegrees: deskew ? Double(skew) * 180 / .pi : nil)
+        skewDegrees: deskew ? Double(skew) * 180 / .pi : nil,
+        rotatedDegrees: turned)
 }
 
 // MARK: - Reading order (SPEC 8.4)
@@ -309,6 +352,7 @@ func levenshtein(_ a: [Int], _ b: [Int]) -> Int {
 /// Parses and validates the arguments. Any thrown error is a usage error (exit 2).
 func makeSetup(_ args: [String]) throws -> Setup {
     var folderPath: String?, truthPath: String?, truthDirPath: String?, outPath: String?, show = false, deskew = false
+    var rotateDegrees: Double?, level = false
     var rest = args[...]
     while let arg = rest.popFirst() {
         switch arg {
@@ -317,12 +361,18 @@ func makeSetup(_ args: [String]) throws -> Setup {
         case "--out": outPath = try optionValue(for: arg, from: &rest)
         case "--show": show = true
         case "--deskew": deskew = true
+        case "--level": level = true
+        case "--rotate":
+            let value = try optionValue(for: arg, from: &rest)
+            guard let degrees = Double(value) else { throw ToolError("--rotate needs degrees, got \(value)") }
+            rotateDegrees = degrees
         case _ where arg.hasPrefix("-"): throw ToolError("unknown option \(arg)")
         case _ where folderPath != nil: throw ToolError("only one <folder> is allowed")
         default: folderPath = arg
         }
     }
     guard let folder = folderPath else { throw ToolError("missing <folder>") }
+    if rotateDegrees != nil && level { throw ToolError("use --rotate or --level, not both") }
     let images = try imageFiles(in: folder)
 
     var sharedTruth: String?
@@ -347,7 +397,8 @@ func makeSetup(_ args: [String]) throws -> Setup {
         catch { throw ToolError("cannot create --out folder \(outPath)") }
         outDir = dir
     }
-    return Setup(images: images, sharedTruth: sharedTruth, truthDir: truthDir, outDir: outDir, show: show, deskew: deskew)
+    return Setup(images: images, sharedTruth: sharedTruth, truthDir: truthDir, outDir: outDir, show: show, deskew: deskew,
+                 rotateDegrees: rotateDegrees, level: level)
 }
 
 func optionValue(for option: String, from rest: inout ArraySlice<String>) throws -> String {
@@ -402,7 +453,8 @@ func writeError(_ message: String) {
 func report(_ r: ImageResult, show: Bool) {
     let flag = r.noText ? " NO_TEXT" : ""
     let skew = r.skewDegrees.map { " skew=\(fixed($0, 2))deg" } ?? ""
-    print("RESULT \(r.file) chars=\(r.text.count) ocr_ms=\(fixed(r.ocrMs, 0)) cer=\(cerText(r.cer))\(flag)\(skew)")
+    let turned = r.rotatedDegrees.map { " rotated=\(fixed($0, 2))deg" } ?? ""
+    print("RESULT \(r.file) chars=\(r.text.count) ocr_ms=\(fixed(r.ocrMs, 0)) cer=\(cerText(r.cer))\(flag)\(skew)\(turned)")
     guard show else { return }
     for line in (r.noText ? "(no text)" : r.text).split(separator: "\n", omittingEmptySubsequences: false) {
         print(line.isEmpty ? "" : "    \(line)")
@@ -467,7 +519,7 @@ func runTool(_ args: [String]) async -> Int32 {
     for url in setup.images {
         do {
             let truth = groundTruth(for: url, shared: setup.sharedTruth, truthDir: setup.truthDir)
-            let result = try await processImage(url, truth: truth, deskew: setup.deskew)
+            let result = try await processImage(url, truth: truth, setup: setup)
             results.append(result)
             report(result, show: setup.show)
             if let outDir = setup.outDir {

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "carbon/ack.v1.json",
+  "title": "CARBON ack (laptop to phone)",
+  "type": "object",
+  "required": ["v", "type", "id", "result"],
+  "properties": {
+    "v": { "const": 1 },
+    "type": { "const": "ack" },
+    "id": { "type": "string", "description": "The clip id being acknowledged" },
+    "result": { "enum": ["copied", "pasted", "paste_blocked", "autopaste_disabled", "error"] },
+    "detail": { "type": ["string", "null"] }
+  }
+}

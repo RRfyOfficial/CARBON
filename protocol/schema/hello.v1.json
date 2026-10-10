@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "carbon/hello.v1.json",
+  "title": "CARBON hello (both directions, once per connection)",
+  "type": "object",
+  "required": ["v", "type", "proto", "id", "name"],
+  "properties": {
+    "v": { "const": 1 },
+    "type": { "const": "hello" },
+    "proto": { "type": "integer", "minimum": 1 },
+    "id": { "type": "string", "description": "Random UUID made once per install" },
+    "name": { "type": "string", "maxLength": 64 }
+  }
+}

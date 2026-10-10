@@ -256,32 +256,45 @@ final class AppStore {
             .filter { $0.pathExtension == "heic" && Int($0.deletingPathExtension().lastPathComponent) != nil }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
             .suffix(3)
-        let variants: [(String, VisionLineReader)] = [
-            ("baseline", VisionLineReader()),
-            ("no language correction", VisionLineReader(languageCorrection: false)),
-            ("upscale 1.5x", VisionLineReader(upscale: 1.5)),
-            ("upscale 2x", VisionLineReader(upscale: 2)),
-            ("legacy API", VisionLineReader(engine: .legacy)),
-        ]
         let truth = FixtureCheck.truth(for: slide)
+        let center = CGRect(x: 0.15, y: 0.15, width: 0.7, height: 0.7)
         log.add("reader lab · \(photos.count) photo(s) · against slide \(slide)")
         Task {
             for url in photos {
                 guard let data = try? Data(contentsOf: url) else { continue }
-                for (name, reader) in variants {
-                    let startedAt = ContinuousClock.now
-                    do {
-                        let (read, stats) = try await reader.readWithStats(data)
-                        let text = AsIsFormatter().format(read, lineBreaks: true)
-                        let cer = truth.flatMap { CharacterErrorRate.of(text, truth: $0) }.map { String(format: "%.2f%%", $0 * 100) } ?? "-"
-                        log.add("reader lab · \(url.lastPathComponent) · \(name) · \(text.count) chars · CER \(cer) · " +
-                                "\(stats.observations) obs (\(stats.blank) blank) · \(Pipeline.ms(since: startedAt)) ms")
-                    } catch {
-                        log.add("reader lab · \(url.lastPathComponent) · \(name) · failed: \(error)")
-                    }
+                // The plain read three times, to measure how consistent it is; keep the lines that
+                // locate the text for the crop variants.
+                var found: [RecognizedLine] = []
+                var size = CGSize.zero
+                for attempt in 1...3 {
+                    let output = await labRead(url, "baseline #\(attempt)", VisionLineReader(), data, truth)
+                    if found.isEmpty, let output { found = output.lines; size = output.imageSize }
                 }
+                let region = VisionLineReader.textRegion(of: found, in: size) ?? center
+                log.add("reader lab · text region x \(String(format: "%.2f", region.minX)) y \(String(format: "%.2f", region.minY)) " +
+                        "w \(String(format: "%.2f", region.width)) h \(String(format: "%.2f", region.height))")
+                await labRead(url, "text crop 1x", VisionLineReader(crop: region), data, truth)
+                await labRead(url, "text crop 2x", VisionLineReader(upscale: 2, crop: region), data, truth)
+                await labRead(url, "center 70% 1x", VisionLineReader(crop: center), data, truth)
+                await labRead(url, "center 70% 2x", VisionLineReader(upscale: 2, crop: center), data, truth)
             }
             log.add("reader lab · done")
+        }
+    }
+
+    @discardableResult
+    private func labRead(_ url: URL, _ name: String, _ reader: VisionLineReader, _ data: Data, _ truth: String?) async -> VisionLineReader.Output? {
+        let startedAt = ContinuousClock.now
+        do {
+            let output = try await reader.recognizeLines(data)
+            let text = AsIsFormatter().format(ReadingOrder.blocks(from: output.lines), lineBreaks: true)
+            let cer = truth.flatMap { CharacterErrorRate.of(text, truth: $0) }.map { String(format: "%.2f%%", $0 * 100) } ?? "-"
+            log.add("reader lab · \(url.lastPathComponent) · \(name) · \(text.count) chars · CER \(cer) · " +
+                    "\(output.stats.observations) obs (\(output.stats.blank) blank) · \(Pipeline.ms(since: startedAt)) ms")
+            return output
+        } catch {
+            log.add("reader lab · \(url.lastPathComponent) · \(name) · failed: \(error)")
+            return nil
         }
     }
 

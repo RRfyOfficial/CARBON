@@ -255,19 +255,18 @@ final class AppStore {
         let photos = ((try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? [])
             .filter { $0.pathExtension == "heic" && Int($0.deletingPathExtension().lastPathComponent) != nil }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
-            .suffix(3)
+            .suffix(4)
         let truth = FixtureCheck.truth(for: slide)
-        let center = CGRect(x: 0.15, y: 0.15, width: 0.7, height: 0.7)
         log.add("reader lab · \(photos.count) photo(s) · against slide \(slide)")
+        log.add("reader lab · Vision devices · \(VisionLineReader.computeDevices())")
         Task {
             for url in photos {
                 guard let data = try? Data(contentsOf: url) else { continue }
-                // Vision's own minimum text height (unset) against explicit values, then a crop.
-                let unset = await labRead(url, "min unset (default)", VisionLineReader(), data, truth)
-                await labRead(url, "min 1/100", VisionLineReader(minimumTextHeight: 1.0 / 100), data, truth)
-                await labRead(url, "min 1/32 explicit", VisionLineReader(minimumTextHeight: 1.0 / 32), data, truth)
-                let region = unset.flatMap { VisionLineReader.textRegion(of: $0.lines, in: $0.imageSize) } ?? center
-                await labRead(url, "min unset · text crop 2x", VisionLineReader(upscale: 2, crop: region), data, truth)
+                // Vision's own choice of processor, then each processor pinned in turn.
+                await labRead(url, "auto", VisionLineReader(), data, truth)
+                for processor in VisionLineReader.Processor.allCases {
+                    await labRead(url, processor.rawValue, VisionLineReader(processor: processor), data, truth)
+                }
             }
             log.add("reader lab · done")
         }
@@ -281,7 +280,8 @@ final class AppStore {
             let text = AsIsFormatter().format(ReadingOrder.blocks(from: output.lines), lineBreaks: true)
             let cer = truth.flatMap { CharacterErrorRate.of(text, truth: $0) }.map { String(format: "%.2f%%", $0 * 100) } ?? "-"
             log.add("reader lab · \(url.lastPathComponent) · \(name) · \(text.count) chars · CER \(cer) · " +
-                    "\(output.stats.observations) obs (\(output.stats.blank) blank) · \(Pipeline.ms(since: startedAt)) ms")
+                    "\(output.stats.observations) obs (\(output.stats.blank) blank) · \(Pipeline.ms(since: startedAt)) ms" +
+                    (output.stats.device.map { " · on \($0)" } ?? ""))
             return output
         } catch {
             log.add("reader lab · \(url.lastPathComponent) · \(name) · failed: \(error)")

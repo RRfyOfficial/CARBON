@@ -156,10 +156,14 @@ case "$cmd" in
     copy_from_phone Documents/logs "$OUT/logs"
     say "Copied to ios/build/phone/logs:"
     ls -l "$OUT/logs"
-    if [ -f "$OUT/logs/lab.log" ]; then
-      say "Last ${2:-150} lines of lab.log:"
-      tail -n "${2:-150}" "$OUT/logs/lab.log"
-    fi
+    # carbon.log is the app's event log; lab.log was the M0 spike's.
+    for name in carbon.log lab.log; do
+      if [ -f "$OUT/logs/$name" ]; then
+        say "Last ${2:-150} lines of $name:"
+        tail -n "${2:-150}" "$OUT/logs/$name"
+        break
+      fi
+    done
     ;;
 
   captures)

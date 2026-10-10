@@ -50,6 +50,15 @@
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>CARBON uses Bluetooth to connect to your glasses.</string>
 
+	<!-- Tactura faces, bundled from ios/Carbon/Resources/Fonts (OFL, licenses alongside) -->
+	<key>UIAppFonts</key>
+	<array>
+		<string>Doto.ttf</string>
+		<string>SpaceMono-Regular.ttf</string>
+		<string>SpaceMono-Bold.ttf</string>
+		<string>SpaceGrotesk.ttf</string>
+	</array>
+
 	<!-- Wi-Fi: high-bandwidth links to the glasses -->
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>CARBON uses your local network to connect to your glasses over Wi-Fi.</string>

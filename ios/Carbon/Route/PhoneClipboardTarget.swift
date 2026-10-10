@@ -7,14 +7,15 @@ protocol ScanTarget: AnyObject {
     var id: TargetID { get }
     /// Short name for the glasses, e.g. "PHONE" or "ZEPHYRUS".
     var displayName: String { get }
-    func deliver(_ text: String, mode: PasteMode) async -> DeliveryStatus
+    /// `id` is the scan's id; the laptop uses it to never paste the same clip twice.
+    func deliver(_ text: String, id: UUID, mode: PasteMode) async -> DeliveryStatus
 }
 
 final class PhoneClipboardTarget: ScanTarget {
     let id = TargetID.phone
     let displayName = "PHONE"
 
-    func deliver(_ text: String, mode: PasteMode) async -> DeliveryStatus {
+    func deliver(_ text: String, id: UUID, mode: PasteMode) async -> DeliveryStatus {
         write(text) ? .delivered(.copied) : .awaitingAppOpen
     }
 

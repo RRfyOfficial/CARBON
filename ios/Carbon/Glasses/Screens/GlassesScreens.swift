@@ -26,11 +26,11 @@ enum GlassesScreens {
     static func scanning(_ model: GlassesScreen.Scanning) -> some DisplayableView {
         FlexBox(direction: .column, spacing: 14, alignment: .start, crossAlignment: .center) {
             header(model.targetLabel)
-            Text(model.stage.heading, style: .heading, color: .primary)
+            Text(model.stage.heading(toLaptop: model.toLaptop), style: .heading, color: .primary)
             if model.detail {
                 Text("DETAIL", style: .meta, color: .secondary)
             }
-            Text(rail(model.stage), style: .meta, color: .primary)
+            Text(rail(model.stage, toLaptop: model.toLaptop), style: .meta, color: .primary)
             Text(subtitle(model), style: .meta, color: .secondary)
             Text(elapsed(model.elapsed), style: .meta, color: .secondary)
         }
@@ -46,6 +46,15 @@ enum GlassesScreens {
             if let warning = model.warning {
                 Text(warning, style: .meta, color: .primary)
             }
+        }
+        .padding(24)
+    }
+
+    static func linked(_ name: String, filled: Bool) -> some DisplayableView {
+        FlexBox(direction: .column, spacing: 12, alignment: .center, crossAlignment: .center) {
+            Icon(name: .checkmarkCircle, style: filled ? .filled : .outline)
+            Text("LINKED", style: .heading, color: .primary)
+            Text(name, style: .meta, color: .secondary)
         }
         .padding(24)
     }
@@ -84,9 +93,9 @@ enum GlassesScreens {
     }
 
     /// "■ CAPTURE  ■ TRANSFER  □ READ  □ COPY": filled up to and including the current stage.
-    private static func rail(_ current: GlassesScreen.Scanning.Stage) -> String {
+    private static func rail(_ current: GlassesScreen.Scanning.Stage, toLaptop: Bool) -> String {
         let stages: [GlassesScreen.Scanning.Stage] = [.capture, .transfer, .read, .copy]
-        return stages.map { "\($0 <= current ? "■" : "□") \($0.railName)" }.joined(separator: "  ")
+        return stages.map { "\($0 <= current ? "■" : "□") \($0.railName(toLaptop: toLaptop))" }.joined(separator: "  ")
     }
 
     private static func subtitle(_ model: GlassesScreen.Scanning) -> String {

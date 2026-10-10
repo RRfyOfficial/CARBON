@@ -1,5 +1,5 @@
 // The scan pipeline (SPEC 8.1): Trigger → Capture → Reader → Formatter → Target. Each stage is a
-// socket, so a later upgrade (a document reader, a laptop target) is a one-line swap here.
+// socket, so a later upgrade (a document reader, another target) is a one-line swap here.
 
 import Foundation
 
@@ -12,24 +12,25 @@ final class Pipeline {
     var photoSource: any PhotoSource
     var reader: any TextReader
     var formatter: any ScanFormatter
-    var target: any ScanTarget
     var lineBreaks = true
     var keepCaptures = false
 
+    /// Where a laptop scan's text goes when the laptop doesn't take it: the scan is never lost.
+    private let fallback: PhoneClipboardTarget
     private let log: EventLog
 
     init(photoSource: any PhotoSource, reader: any TextReader, formatter: any ScanFormatter,
-         target: any ScanTarget, log: EventLog) {
+         fallback: PhoneClipboardTarget, log: EventLog) {
         self.photoSource = photoSource
         self.reader = reader
         self.formatter = formatter
-        self.target = target
+        self.fallback = fallback
         self.log = log
     }
 
-    /// Runs one scan. Returns the scan to keep in history (also for `awaitingAppOpen`), or the
-    /// error to show. Timings are milliseconds since `startedAt`, the trigger.
-    func run(_ kind: ScanKind, startedAt: ContinuousClock.Instant,
+    /// Runs one scan to `target`. Returns the scan to keep in history (also for `awaitingAppOpen`
+    /// and NOT DELIVERED), or the error to show. Timings are milliseconds since `startedAt`, the trigger.
+    func run(_ kind: ScanKind, to target: any ScanTarget, mode: PasteMode, startedAt: ContinuousClock.Instant,
              progress: @escaping (Progress) -> Void) async -> Result<Scan, ScanError> {
         var timings = StageTimings()
         func now() -> Int { Self.ms(since: startedAt) }
@@ -70,16 +71,25 @@ final class Pipeline {
         timings.formatted = now()
 
         progress(.stage(.copy))
-        let delivery = await target.deliver(text, mode: .clipboard)
+        let id = UUID()
+        let delivery = await target.deliver(text, id: id, mode: mode)
         timings.delivered = now()
+
+        // Not delivered to the laptop (or it speaks another version): the phone clipboard gets it,
+        // now if CARBON is open, otherwise the moment it opens.
+        var phoneCopyPending: Bool?
+        if delivery == .notDelivered || delivery == .failed(.version) {
+            phoneCopyPending = await fallback.deliver(text, id: id, mode: .clipboard) == .awaitingAppOpen ? true : nil
+        }
 
         log.add("scan \(kind.rawValue) · \(photo.count) B · \(text.count) chars · skew \(String(format: "%.1f", read.skewDegrees))° · " +
                 "first byte \(timings.firstByte ?? -1) · photo \(timings.photoReceived ?? -1) · read \(timings.readDone ?? -1) · " +
-                "delivered \(timings.delivered ?? -1) ms · \(delivery)" +
+                "delivered \(timings.delivered ?? -1) ms · \(target.displayName) · \(delivery)" +
+                (phoneCopyPending == true ? " · phone copy waits for CARBON" : "") +
                 (read.cutEdges.isEmpty ? "" : " · cut at \(read.cutEdges.map(\.rawValue).sorted().joined(separator: "+"))"))
-        return .success(Scan(id: UUID(), createdAt: .now, text: text, target: target.id, pasteMode: .clipboard,
+        return .success(Scan(id: id, createdAt: .now, text: text, target: target.id, pasteMode: mode,
                              kind: kind, timings: timings, delivery: delivery, photoBytes: photo.count,
-                             cutEdges: read.cutEdges.isEmpty ? nil : read.cutEdges))
+                             cutEdges: read.cutEdges.isEmpty ? nil : read.cutEdges, phoneCopyPending: phoneCopyPending))
     }
 
     /// Debug "Keep captures" (SPEC 3 rule 7): off by default; photos are otherwise never stored.

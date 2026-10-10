@@ -47,6 +47,13 @@ final class GlassesRouter {
         show(.done(done, filled: true))
     }
 
+    /// LINKED with the same tick effect as DONE.
+    func showLinkedWithTick(_ name: String) async {
+        show(.linked(name: name, filled: false))
+        try? await Task.sleep(for: .milliseconds(120))
+        show(.linked(name: name, filled: true))
+    }
+
     var isOnMain: Bool {
         if case .main = screen { true } else { false }
     }
@@ -80,6 +87,8 @@ final class GlassesRouter {
             try await display.send(GlassesScreens.done(model, filled: filled))
         case .error(let code, let elapsed):
             try await display.send(GlassesScreens.error(code, elapsed: elapsed, onRetry: action(.retry), onBack: action(.back)))
+        case .linked(let name, let filled):
+            try await display.send(GlassesScreens.linked(name, filled: filled))
         }
     }
 

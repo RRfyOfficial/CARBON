@@ -115,12 +115,22 @@ func recognizeLines(in image: CGImage, orientation: CGImagePropertyOrientation) 
     }
 }
 
-/// Median slope of lines with at least 4 characters, in radians (pixel space, y down).
+/// Length-weighted median slope of the lines, in radians (pixel space, y down).
+/// Vision returns exactly axis-aligned quads for some short items (table cells), which carry no
+/// tilt information, so exactly-zero slopes are skipped; long lines dominate the estimate.
 func estimateSkew(_ raw: [RawLine]) -> CGFloat {
-    let angles = raw.filter { $0.text.count >= 4 }.map { line in
-        atan2(line.corners[1].y - line.corners[0].y, line.corners[1].x - line.corners[0].x)
+    let samples = raw.compactMap { line -> (angle: CGFloat, weight: CGFloat)? in
+        let dx = line.corners[1].x - line.corners[0].x, dy = line.corners[1].y - line.corners[0].y
+        guard line.text.count >= 4, dy != 0 else { return nil }
+        return (atan2(dy, dx), hypot(dx, dy))
+    }.sorted { $0.angle < $1.angle }
+    let half = samples.reduce(0) { $0 + $1.weight } / 2
+    var running: CGFloat = 0
+    for sample in samples {
+        running += sample.weight
+        if running >= half { return sample.angle }
     }
-    return median(angles)
+    return 0
 }
 
 /// Axis-aligned boxes for ordering. With `deskew`, every quadrilateral is first rotated by the

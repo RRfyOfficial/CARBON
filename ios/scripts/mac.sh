@@ -11,6 +11,7 @@
 #   build             pull, then compile the iOS app for the simulator (no signing, no password).
 #   test              pull, then run the unit tests on an iOS simulator.
 #   logs [lines]      Copy the app's Documents/logs folder off the iPhone, print the log tail.
+#   history           Copy the app's scan history JSON off the iPhone (contains scan text).
 #   captures [folder] Copy the app's Documents/<folder> (default captures; or fixtures) off the
 #                     iPhone, make JPEG copies.
 #   ocr [folder] [opts]  Apple Vision OCR + CER over a folder (default ios/build/phone/captures).
@@ -166,6 +167,15 @@ case "$cmd" in
     done
     ;;
 
+  history)
+    # Copies the app's scan history (Application Support/history.json) for diagnosing accuracy.
+    # It contains scan text: delete ios/build/phone/history.json as soon as you're done.
+    OUT="$REPO/ios/build/phone"
+    mkdir -p "$OUT" && rm -f "$OUT/history.json"
+    copy_from_phone "Library/Application Support/history.json" "$OUT/history.json"
+    say "Copied to ios/build/phone/history.json ($(wc -c < "$OUT/history.json" | tr -d ' ') bytes)"
+    ;;
+
   captures)
     # Copies Documents/<folder> off the phone (HEIC from the glasses; "captures" or
     # "fixtures") and makes JPEG copies for viewing.
@@ -235,7 +245,7 @@ case "$cmd" in
     ;;
 
   *)
-    echo "usage: mac.sh doctor | pull | switch <branch> | build | test | logs [lines] | captures [folder] | ocr [folder] [opts]" >&2
+    echo "usage: mac.sh doctor | pull | switch <branch> | build | test | logs [lines] | history | captures [folder] | ocr [folder] [opts]" >&2
     exit 2
     ;;
 esac

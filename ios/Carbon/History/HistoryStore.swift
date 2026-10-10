@@ -22,9 +22,10 @@ final class HistoryStore {
 
     var latest: Scan? { scans.first }
 
-    /// Scans that finished while CARBON was in the background and still need the clipboard (M0 U5).
+    /// Scans that finished while CARBON was in the background and still need the phone clipboard
+    /// (M0 U5): phone-target scans, and laptop scans that weren't delivered.
     var awaitingAppOpen: [Scan] {
-        scans.filter { $0.delivery == .awaitingAppOpen }
+        scans.filter { $0.delivery == .awaitingAppOpen || $0.phoneCopyPending == true }
     }
 
     func add(_ scan: Scan) {

@@ -8,6 +8,8 @@ nonisolated enum GlassesScreen: Equatable, Sendable {
     case scanning(Scanning)
     case done(Done, filled: Bool)
     case error(ScanError, elapsed: Double?)
+    /// A new laptop pairing completed during a session (SPEC 6.2, PAIR).
+    case linked(name: String, filled: Bool)
 
     nonisolated struct Main: Equatable, Sendable {
         var targetLabel = "TARGET·PHONE"
@@ -24,26 +26,28 @@ nonisolated enum GlassesScreen: Equatable, Sendable {
 
             static func < (a: Stage, b: Stage) -> Bool { a.rawValue < b.rawValue }
 
-            var railName: String {
+            /// The last stage is SEND for the laptop and COPY for the phone (SPEC 6.2).
+            func railName(toLaptop: Bool) -> String {
                 switch self {
                 case .capture: "CAPTURE"
                 case .transfer: "TRANSFER"
                 case .read: "READ"
-                case .copy: "COPY"
+                case .copy: toLaptop ? "SEND" : "COPY"
                 }
             }
 
-            var heading: String {
+            func heading(toLaptop: Bool) -> String {
                 switch self {
                 case .capture: "CAPTURING"
                 case .transfer: "TRANSFERRING"
                 case .read: "READING"
-                case .copy: "COPYING"
+                case .copy: toLaptop ? "SENDING" : "COPYING"
                 }
             }
         }
 
         var targetLabel = "TARGET·PHONE"
+        var toLaptop = false
         var stage: Stage = .capture
         var transferPercent: Int?
         var elapsed: Double = 0
@@ -79,7 +83,7 @@ nonisolated extension ScanError {
         case .noText: "NO TEXT FOUND"
         case .captureFailed: "CAPTURE FAILED"
         case .timeout: "TOOK TOO LONG"
-        case .notDelivered: "SAVED TO PHONE"
+        case .notDelivered, .notDeliveredOpenToCopy: "SAVED TO PHONE"
         case .openToCopy: "SAVED"
         case .pasteBlocked, .autopasteOff: "COPIED, NOT PASTED"
         case .version: "UPDATE NEEDED"
@@ -92,6 +96,7 @@ nonisolated extension ScanError {
         case .captureFailed: "GLASSES CAMERA DIDN'T RESPOND"
         case .timeout: "TRY AGAIN"
         case .notDelivered: "LAPTOP UNREACHABLE · ON PHONE CLIPBOARD"
+        case .notDeliveredOpenToCopy: "LAPTOP UNREACHABLE · OPEN CARBON TO COPY"
         case .openToCopy: "OPEN CARBON TO COPY"
         case .pasteBlocked: "THAT WINDOW IS RUNNING AS ADMIN"
         case .autopasteOff: "AUTOPASTE IS OFF ON THIS PC"
@@ -102,7 +107,7 @@ nonisolated extension ScanError {
     /// The scan is safe (saved or copied); shown like DONE, with no RETRY (SPEC 6.2).
     var isSafe: Bool {
         switch self {
-        case .notDelivered, .openToCopy, .pasteBlocked, .autopasteOff: true
+        case .notDelivered, .notDeliveredOpenToCopy, .openToCopy, .pasteBlocked, .autopasteOff: true
         case .noText, .captureFailed, .timeout, .version: false
         }
     }

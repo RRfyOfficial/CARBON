@@ -25,6 +25,8 @@ nonisolated enum ScanError: String, Codable, Error, Sendable {
     case captureFailed = "CAPTURE_FAILED"
     case timeout = "TIMEOUT"
     case notDelivered = "NOT_DELIVERED"
+    /// NOT_DELIVERED while CARBON was in the background: the phone copy waits for CARBON to open.
+    case notDeliveredOpenToCopy = "NOT_DELIVERED_OPEN_TO_COPY"
     case openToCopy = "OPEN_TO_COPY"
     case pasteBlocked = "PASTE_BLOCKED"
     case autopasteOff = "AUTOPASTE_OFF"
@@ -68,6 +70,9 @@ nonisolated struct Scan: Codable, Identifiable, Equatable, Sendable {
     var photoBytes: Int?
     /// Text ran into the photo's top or bottom edge, so some was probably cut off.
     var cutEdges: Set<CutEdge>?
+    /// NOT DELIVERED to the laptop while CARBON was in the background: the text still has to reach
+    /// the phone clipboard when CARBON opens (PROTOCOL.md Section 6, M0 U5).
+    var phoneCopyPending: Bool?
 
     var charCount: Int { text.count }
 }

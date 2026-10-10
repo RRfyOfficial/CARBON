@@ -23,6 +23,7 @@ struct SessionPanel: View {
                 badge("DISPLAY", session.display)
                 badge("CAMERA", session.camera)
                 badge("INPUTS", session.inputs)
+                badge("LINK", store.linkBadge)
             }
 
             if let selectedBadge, let reason = reason(for: selectedBadge), !reason.isEmpty {
@@ -43,6 +44,7 @@ struct SessionPanel: View {
         case "DISPLAY": return session.display.reason
         case "CAMERA": return session.camera.reason
         case "INPUTS": return session.inputs.reason
+        case "LINK": return store.linkBadge.reason
         default: return nil
         }
     }

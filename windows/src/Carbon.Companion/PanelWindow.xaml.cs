@@ -86,7 +86,7 @@ public partial class PanelWindow : Window
         ShowPairStep("Searching for a phone with CARBON open…", cancel: true);
         var result = await app.Link.PairAsync(ConfirmCodeAsync, step => Dispatcher.Invoke(() => OnPairProgress(step)), pairing.Token);
         pairing = null;
-        CodeText.Visibility = Visibility.Collapsed;
+        CodeBox.Visibility = Visibility.Collapsed;
         if (result.Ok)
         {
             await app.PairedAsync(result.DeviceId!, result.PhoneName, result.ClassicTwinId);
@@ -110,9 +110,10 @@ public partial class PanelWindow : Window
     private Task<bool> ConfirmCodeAsync(string code) => Dispatcher.Invoke(() =>
     {
         codeAnswer = new TaskCompletionSource<bool>();
-        CodeText.Text = string.Join("  ", code.PadLeft(6, '0').ToCharArray());
-        CodeText.Visibility = Visibility.Visible;
-        PairStatus.Text = "Same code on your phone? Tap Pair there, then confirm here.";
+        CodeText.Text = string.Join(" ", code.PadLeft(6, '0').ToCharArray());
+        CodeBox.Visibility = Visibility.Visible;
+        // iOS 27's pairing prompt shows only "Pair", no code (M2): the code here is for reference.
+        PairStatus.Text = "Tap Pair on your phone, then confirm here. If the phone shows a code, it should match.";
         PairStatus.Foreground = Brush("Text");
         PairButton.Visibility = CancelButton.Visibility = Visibility.Collapsed;
         ConfirmButton.Visibility = RejectButton.Visibility = Visibility.Visible;

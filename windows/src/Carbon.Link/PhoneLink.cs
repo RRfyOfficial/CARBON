@@ -48,6 +48,9 @@ public sealed class PhoneLink(Hello hello, Action<string> log) : IAsyncDisposabl
     private CancellationTokenSource? running;
     private BluetoothLEDevice? device;
     private GattSession? session;
+    // Held while linked and disposed before the next fetch: an undisposed service from an earlier
+    // fetch (the pairing's INFO read) made the next one fail with AccessDenied.
+    private GattDeviceService? service;
     private GattCharacteristic? p2l;
     private GattCharacteristic? l2p;
     private ushort nextMsgId;
@@ -100,6 +103,8 @@ public sealed class PhoneLink(Hello hello, Action<string> log) : IAsyncDisposabl
         inbound = null;
         if (p2l is not null) p2l.ValueChanged -= OnValueChanged;
         p2l = l2p = null;
+        service?.Dispose();
+        service = null;
         if (device is not null) device.ConnectionStatusChanged -= OnConnectionStatusChanged;
         session?.Dispose();
         device?.Dispose();
@@ -214,29 +219,46 @@ public sealed class PhoneLink(Hello hello, Action<string> log) : IAsyncDisposabl
         }
     }
 
-    /// <summary>On every connect: characteristics (uncached), version, encryption, subscription, hello.</summary>
-    private async Task SetUpAsync()
+    /// <summary>
+    /// On every connect: characteristics (uncached), version, encryption, subscription, hello.
+    /// A failed attempt while still connected is retried, up to 5 times 2 s apart.
+    /// </summary>
+    private async Task SetUpAsync(int attempt = 1)
+    {
+        if (!await TrySetUpAsync() && attempt < 5 && device?.ConnectionStatus == BluetoothConnectionStatus.Connected)
+        {
+            log($"set-up attempt {attempt} failed; retrying");
+            await Task.Delay(TimeSpan.FromSeconds(2));
+            await SetUpAsync(attempt + 1);
+        }
+    }
+
+    private async Task<bool> TrySetUpAsync()
     {
         await setupGate.WaitAsync();
         try
         {
-            if (device is not { } phone) return;
-            var characteristics = await CharacteristicsAsync(phone);
-            if (characteristics is null) return;
+            if (device is not { } phone) return true;
+            if (p2l is not null) p2l.ValueChanged -= OnValueChanged;
+            p2l = l2p = null;
+            service?.Dispose();
+            service = null;
+
+            if (await CharacteristicsAsync(phone) is not var (opened, characteristics)) return false;
+            service = opened;
             if (!characteristics.TryGetValue(Protocol.P2L, out var notify) || !characteristics.TryGetValue(Protocol.L2P, out var write))
             {
                 log("the phone's CARBON service is missing P2L or L2P");
                 SetState(LinkState.VersionMismatch);
-                return;
+                return true;
             }
             if (await ReadInfoAsync(characteristics) is { } info && info.Proto != Protocol.Version)
             {
                 log($"phone speaks protocol {info.Proto}, this companion {Protocol.Version}");
                 SetState(LinkState.VersionMismatch);
-                return;
+                return true;
             }
 
-            if (p2l is not null) p2l.ValueChanged -= OnValueChanged;
             lock (reassembler) reassembler.Reset();
             // Windows only encrypts the link when a request asks for it (CLAUDE.md, section 8).
             notify.ProtectionLevel = GattProtectionLevel.EncryptionRequired;
@@ -249,15 +271,16 @@ public sealed class PhoneLink(Hello hello, Action<string> log) : IAsyncDisposabl
             if (status != GattCommunicationStatus.Success)
             {
                 log($"subscribing failed: {status}");
-                return;
+                return false;
             }
             log($"subscribed (max PDU {session?.MaxPduSize})");
             SetState(LinkState.Connected);
-            await SendAsync(Messages.Encode(hello));
+            return await SendAsync(Messages.Encode(hello));
         }
         catch (Exception ex)
         {
             log($"set-up failed: {ex.Message}");
+            return false;
         }
         finally
         {
@@ -385,7 +408,8 @@ public sealed class PhoneLink(Hello hello, Action<string> log) : IAsyncDisposabl
         return found.Task.IsCompletedSuccessfully ? found.Task.Result : null;
     }
 
-    private async Task<Dictionary<Guid, GattCharacteristic>?> CharacteristicsAsync(BluetoothLEDevice phone)
+    /// <summary>The CARBON service, opened shared, and its characteristics. The caller disposes the service.</summary>
+    private async Task<(GattDeviceService Service, Dictionary<Guid, GattCharacteristic> Characteristics)?> CharacteristicsAsync(BluetoothLEDevice phone)
     {
         var services = await phone.GetGattServicesForUuidAsync(Protocol.Service, BluetoothCacheMode.Uncached);
         if (services.Status != GattCommunicationStatus.Success || services.Services.Count == 0)
@@ -393,17 +417,27 @@ public sealed class PhoneLink(Hello hello, Action<string> log) : IAsyncDisposabl
             log($"CARBON service: {services.Status}, {services.Services.Count} found");
             return null;
         }
-        var result = await services.Services[0].GetCharacteristicsAsync(BluetoothCacheMode.Uncached);
+        var service = services.Services[0];
+        foreach (var extra in services.Services.Skip(1)) extra.Dispose();
+        var open = await service.OpenAsync(GattSharingMode.SharedReadAndWrite);
+        if (open is not (GattOpenStatus.Success or GattOpenStatus.AlreadyOpened))
+            log($"opening the CARBON service: {open}");
+        var result = await service.GetCharacteristicsAsync(BluetoothCacheMode.Uncached);
         if (result.Status != GattCommunicationStatus.Success)
         {
             log($"characteristics: {result.Status}");
+            service.Dispose();
             return null;
         }
-        return result.Characteristics.ToDictionary(c => c.Uuid);
+        return (service, result.Characteristics.ToDictionary(c => c.Uuid));
     }
 
-    private async Task<(int Proto, string Name)?> ReadInfoAsync(BluetoothLEDevice phone) =>
-        await CharacteristicsAsync(phone) is { } characteristics ? await ReadInfoAsync(characteristics) : null;
+    /// <summary>INFO for pairing; the service is closed again right after.</summary>
+    private async Task<(int Proto, string Name)?> ReadInfoAsync(BluetoothLEDevice phone)
+    {
+        if (await CharacteristicsAsync(phone) is not var (service, characteristics)) return null;
+        using (service) return await ReadInfoAsync(characteristics);
+    }
 
     private async Task<(int Proto, string Name)?> ReadInfoAsync(Dictionary<Guid, GattCharacteristic> characteristics)
     {

@@ -11,8 +11,12 @@
     <AssemblyName>CARBON Companion</AssemblyName>
     <RootNamespace>Carbon.Companion</RootNamespace>
     <Version>0.1.0</Version>
+    <!-- assets/brand/carbon-icon-1024.png at 16-256 px (PNG entries). -->
+    <ApplicationIcon>Assets\carbon.ico</ApplicationIcon>
     <!-- Single-file publish (SPEC 10): WPF's native libraries have to come along inside the exe. -->
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <!-- About 180 MB uncompressed; compression costs a little start-up time. -->
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
   </PropertyGroup>
 
   <ItemGroup>

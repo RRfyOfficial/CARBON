@@ -30,7 +30,7 @@ Pairing is the operating systems' own Bluetooth bond. There is no CARBON-level k
 1. CARBON is open on the phone (so its service is visible) and the wearer clicks **PAIR A PHONE** in the companion.
 2. The companion scans for the CARBON service, connects, and reads `INFO`. A different `proto` stops here with a version badge (Section 7).
 3. The companion calls `DeviceInformationCustomPairing.PairAsync(ConfirmPinMatch | DisplayPin | ConfirmOnly, EncryptionAndAuthentication)`. That is LE Secure Connections with numeric comparison: both devices show the same **6-digit code**.
-4. The companion panel shows the code with **CONFIRM** / **REJECT**. It calls `Accept()` only on CONFIRM. The iPhone shows its own *Bluetooth Pairing Request* with the same code; the wearer taps **Pair**.
+4. The companion panel shows the code with **CONFIRM** / **REJECT**. It calls `Accept()` only on CONFIRM. The iPhone shows its own *Bluetooth Pairing Request*; the wearer taps **Pair**. On iOS 27 that prompt shows no code, only **Pair** (seen in M2), so the code can't be compared there: the pairing is still encrypted, but the comparison that would catch an active attacker during this one-time step relies on the wearer pairing somewhere sensible.
 5. Bonded. The companion sets `ProtectionLevel = EncryptionRequired` on `P2L` and `L2P` (Windows only encrypts when asked), subscribes to `P2L`, and writes its `hello` to `L2P`.
 6. The phone stores the laptop (id, name) as its paired computer and answers with its own `hello` on `P2L`. Both sides now show **LINKED**.
 

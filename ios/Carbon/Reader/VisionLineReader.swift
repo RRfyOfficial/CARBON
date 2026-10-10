@@ -70,17 +70,17 @@ nonisolated struct VisionLineReader: TextReader {
         // Cropping works in the stored pixel grid, so it's only applied to upright photos
         // (the glasses deliver .up); anything else is read whole.
         var region = CGRect(x: 0, y: 0, width: fullWidth, height: fullHeight)
-        var source = decoded
+        var input = decoded
         if let crop = options.crop, orientation == .up {
             let wanted = CGRect(x: crop.minX * fullWidth, y: crop.minY * fullHeight,
                                 width: crop.width * fullWidth, height: crop.height * fullHeight).integral
                 .intersection(region)
             if !wanted.isEmpty, let cropped = decoded.cropping(to: wanted) {
                 region = wanted
-                source = cropped
+                input = cropped
             }
         }
-        let image = options.upscale > 1 ? (scaled(source, by: options.upscale) ?? source) : source
+        let image = options.upscale > 1 ? (scaled(input, by: options.upscale) ?? input) : input
         let scale = CGFloat(image.width) / region.width
 
         // Vision's points are normalized to the (cropped, scaled) upright image with a bottom-left

@@ -1,6 +1,7 @@
 // Reader v1, As-is (SPEC 8.4): Apple Vision text recognition, on-device and free.
 
 import CoreGraphics
+import CoreML
 import Foundation
 import ImageIO
 import Vision
@@ -13,10 +14,25 @@ nonisolated struct VisionLineReader: TextReader {
         case legacy
     }
 
-    /// Counts for the reader lab: how many observations Vision returned, and how many had no text.
+    /// Where Vision runs its main (model) stage. The phone dropped whole lines of slide 3 that the iOS
+    /// simulator, which has no Neural Engine, read perfectly from the same photos (M1 reader lab).
+    nonisolated enum Processor: String, Sendable, CaseIterable {
+        case cpu, gpu, neuralEngine
+
+        func matches(_ device: MLComputeDevice) -> Bool {
+            switch (self, device) {
+            case (.cpu, .cpu), (.gpu, .gpu), (.neuralEngine, .neuralEngine): true
+            default: false
+            }
+        }
+    }
+
+    /// Counts for the reader lab: how many observations Vision returned, how many had no text,
+    /// and the device the main stage was pinned to.
     nonisolated struct Stats: Sendable {
         var observations = 0
         var blank = 0
+        var device: String?
     }
 
     /// Smallest text Vision looks for, as a fraction of image height. nil leaves Vision's own default,
@@ -30,6 +46,16 @@ nonisolated struct VisionLineReader: TextReader {
     /// Read only this region, normalized to the upright image with a top-left origin. Lines come
     /// back in full-image pixels either way.
     var crop: CGRect?
+    /// Pin the main stage to this processor (modern engine only); nil lets Vision choose.
+    var processor: Processor?
+
+    /// The devices Vision offers for each stage of text recognition on this device, for the log.
+    static func computeDevices() -> String {
+        RecognizeTextRequest().supportedComputeStageDevices
+            .sorted { "\($0.key)" < "\($1.key)" }
+            .map { "\($0.key): \($0.value.map(String.init(describing:)).joined(separator: ", "))" }
+            .joined(separator: " · ")
+    }
 
     func read(_ photo: Data) async throws -> ReadText {
         try await readWithStats(photo).text
@@ -106,6 +132,11 @@ nonisolated struct VisionLineReader: TextReader {
             request.recognitionLanguages = [Locale.Language(identifier: "en-US")]
             if let minimum = options.minimumTextHeight {
                 request.minimumTextHeightFraction = minimum
+            }
+            if let processor = options.processor {
+                let device = request.supportedComputeStageDevices[.main]?.first(where: processor.matches)
+                request.setComputeDevice(device, for: .main)
+                stats.device = device.map(String.init(describing:)) ?? "\(processor.rawValue) not offered, Vision chose"
             }
             let observations: [RecognizedTextObservation] = try await request.perform(on: image, orientation: orientation)
             stats.observations = observations.count

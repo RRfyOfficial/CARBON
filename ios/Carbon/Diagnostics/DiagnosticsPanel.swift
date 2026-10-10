@@ -96,7 +96,7 @@ private struct FixtureCheckSection: View {
                 if !fixtures.results.isEmpty {
                     ChamferButton(title: "RESET FIXTURE RESULTS") { fixtures.reset() }
                 }
-                ChamferButton(title: "READER LAB: RE-READ LAST 3 KEPT PHOTOS AS SLIDE \(fixtures.slide)") {
+                ChamferButton(title: "READER LAB: RE-READ LAST 4 KEPT PHOTOS AS SLIDE \(fixtures.slide)") {
                     store.rereadKeptCaptures(slide: fixtures.slide)
                 }
                 Text("NEEDS KEEP CAPTURES ON WHEN THE PHOTOS WERE TAKEN · RESULTS IN THE EVENT LOG")

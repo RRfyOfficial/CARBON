@@ -1,0 +1,9 @@
+Running a session
+1. Welcome the participant and get consent
+2. Explain the think-aloud method
+3. Give one task at a time:
+a) Read the task aloud
+b) Start the timer
+c) Note errors and hesitations
+4. Finish with a short questionnaire
+5. Thank and compensate the participant

@@ -17,11 +17,11 @@ Service `5D7FCEF4-D1AA-46A6-B187-DF5AF19C5BC5`
 
 | Characteristic | UUID | Properties | Permission | Carries |
 |---|---|---|---|---|
-| `INFO` | `C34B4E97-BD2A-4254-A253-B8557272FEBE` | read | readable | Plain JSON, no secrets: `{"proto":1,"id":"<phone id>","name":"IPHONE"}`. Readable before pairing |
+| `INFO` | `C34B4E97-BD2A-4254-A253-B8557272FEBE` | read | readable | Plain JSON, no secrets: `{"proto":1,"id":"<phone id>","name":"IPHONE","boot":"<launch id>"}`. Readable before pairing |
 | `P2L` | `FA6817D4-2B2E-4AD3-ABB0-8981F0A8C674` | notify | encryption required | Frames, phone → laptop: `hello`, `clip` |
 | `L2P` | `4414751E-1E20-4530-AA11-46485950207B` | write with response | encryption required | Frames, laptop → phone: `hello`, `ack` |
 
-The phone id is a random UUID made once per CARBON install. The laptop id is a random UUID made once per companion install.
+The phone id is a random UUID made once per CARBON install. The laptop id is a random UUID made once per companion install. `boot` is a random UUID made each time CARBON starts (added in M2, so readers must accept INFO without it).
 
 ## 3. Pairing and security
 
@@ -29,14 +29,14 @@ Pairing is the operating systems' own Bluetooth bond. There is no CARBON-level k
 
 1. CARBON is open on the phone (so its service is visible) and the wearer clicks **PAIR A PHONE** in the companion.
 2. The companion scans for the CARBON service, connects, and reads `INFO`. A different `proto` stops here with a version badge (Section 7).
-3. The companion calls `DeviceInformationCustomPairing.PairAsync(ConfirmPinMatch | DisplayPin | ConfirmOnly, EncryptionAndAuthentication)`. That is LE Secure Connections with numeric comparison: both devices show the same **6-digit code**.
-4. The companion panel shows the code with **CONFIRM** / **REJECT**. It calls `Accept()` only on CONFIRM. The iPhone shows its own *Bluetooth Pairing Request*; the wearer taps **Pair**. On iOS 27 that prompt shows no code, only **Pair** (seen in M2), so the code can't be compared there: the pairing is still encrypted, but the comparison that would catch an active attacker during this one-time step relies on the wearer pairing somewhere sensible.
+3. The companion calls `DeviceInformationCustomPairing.PairAsync(ConfirmPinMatch | DisplayPin, EncryptionAndAuthentication)`: LE Secure Connections. (`ConfirmOnly` stored a keyless pairing in the spike.) It accepts the request on its side straight away.
+4. The iPhone shows its own *Bluetooth Pairing Request*; the wearer taps **Pair**. That tap is the confirmation. On iOS 27 the prompt shows no code, so there's nothing to compare and the companion shows no code or CONFIRM either (M2). The bond is still encrypted; what a code comparison would add, catching an active attacker during this one-time step, isn't available on iOS 27.
 5. Bonded. The companion sets `ProtectionLevel = EncryptionRequired` on `P2L` and `L2P` (Windows only encrypts when asked), subscribes to `P2L`, and writes its `hello` to `L2P`.
 6. The phone stores the laptop (id, name) as its paired computer and answers with its own `hello` on `P2L`. Both sides now show **LINKED**.
 
 What this guarantees:
 
-- The link is encrypted and the pairing is protected against a device in the middle (numeric comparison).
+- The link is encrypted (LE Secure Connections). Without a code to compare, the one-time pairing isn't protected against an active attacker right there at that moment.
 - `P2L` and `L2P` need an encrypted, bonded link, so an unpaired computer can't subscribe or write: iOS answers *Insufficient Authentication*.
 - The phone sends clips only to the central whose `hello` carried its paired laptop id (`updateValue(_:for:onSubscribedCentrals:)` with that one central).
 - One paired laptop per phone and one paired phone per laptop (v1).
@@ -46,6 +46,8 @@ Pairing over LE also makes Windows and iOS derive a Bluetooth Classic pairing (W
 Forgetting: the companion's **FORGET PHONE** removes the Windows bond and its Classic twin. The phone's **FORGET COMPUTER** drops the stored laptop, but iOS apps can't remove a system bond, so both sides tell the wearer to also remove it in system settings (iPhone: *Settings → Bluetooth → the laptop → Forget This Device*). A bond left on only one side makes Windows reuse dead keys, and every connection fails with `Unreachable`.
 
 On every reconnect the companion fetches the characteristics again (uncached), renews the `P2L` subscription, and sends `hello` again. The phone answers each `hello`.
+
+CARBON restarting (an update, a crash, a swipe-away) removes and re-adds its service without dropping the Bluetooth connection, so Windows sees no disconnect and the old subscription silently dies (M2). The companion therefore also sets up again when Windows reports the phone's GATT services changed, and, while linked, reads `INFO` every 30 s: a failed read or a different `boot` means CARBON restarted, and it sets up again.
 
 ## 4. Framing
 

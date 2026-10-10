@@ -61,6 +61,8 @@ final class LaptopLink: NSObject {
 
     @ObservationIgnored private let log: EventLog
     @ObservationIgnored private let phoneID: String
+    /// New on every launch: in INFO, so the laptop can tell CARBON restarted (PROTOCOL.md Section 3).
+    @ObservationIgnored private let bootID = UUID().uuidString
     @ObservationIgnored private var manager: CBPeripheralManager?
     @ObservationIgnored private var p2l: CBMutableCharacteristic?
     @ObservationIgnored private var restored = false
@@ -191,7 +193,8 @@ final class LaptopLink: NSObject {
     private func addService() {
         let info = CBMutableCharacteristic(
             type: IDs.info, properties: [.read],
-            value: LinkInfo(proto: LinkMessage.protocolVersion, id: phoneID, name: "IPHONE").json, permissions: [.readable])
+            value: LinkInfo(proto: LinkMessage.protocolVersion, id: phoneID, name: "IPHONE", boot: bootID).json,
+            permissions: [.readable])
         let p2l = CBMutableCharacteristic(type: IDs.p2l, properties: [.notify], value: nil, permissions: [.readEncryptionRequired])
         let l2p = CBMutableCharacteristic(type: IDs.l2p, properties: [.write], value: nil, permissions: [.writeEncryptionRequired])
         let service = CBMutableService(type: IDs.service, primary: true)
@@ -220,6 +223,7 @@ private nonisolated struct LinkInfo: Encodable {
     var proto: Int
     var id: String
     var name: String
+    var boot: String
 
     var json: Data { (try? JSONEncoder().encode(self)) ?? Data() }
 }

@@ -16,7 +16,6 @@ public partial class PanelWindow : Window
 {
     private readonly App app;
     private CancellationTokenSource? pairing;
-    private TaskCompletionSource<bool>? codeAnswer;
     private DateTime hiddenAt;
 
     public PanelWindow(App app)
@@ -84,9 +83,8 @@ public partial class PanelWindow : Window
         pairing = new CancellationTokenSource();
         ForgetHint.Visibility = Visibility.Collapsed;
         ShowPairStep("Searching for a phone with CARBON open…", cancel: true);
-        var result = await app.Link.PairAsync(ConfirmCodeAsync, step => Dispatcher.Invoke(() => OnPairProgress(step)), pairing.Token);
+        var result = await app.Link.PairAsync(step => Dispatcher.Invoke(() => OnPairProgress(step)), pairing.Token);
         pairing = null;
-        CodeBox.Visibility = Visibility.Collapsed;
         if (result.Ok)
         {
             await app.PairedAsync(result.DeviceId!, result.PhoneName, result.ClassicTwinId);
@@ -101,35 +99,22 @@ public partial class PanelWindow : Window
         }
     }
 
+    /// <summary>
+    /// The phone's own "Pair" prompt is the confirmation. iOS 27 shows no code there, so the panel
+    /// shows none either (M2, decision log).
+    /// </summary>
     private void OnPairProgress(string step)
     {
-        if (step == "CONNECTING") ShowPairStep("Found it. Connecting…", cancel: false);
-    }
-
-    /// <summary>Called from a Bluetooth thread with the 6-digit code; resolves on CONFIRM or REJECT.</summary>
-    private Task<bool> ConfirmCodeAsync(string code) => Dispatcher.Invoke(() =>
-    {
-        codeAnswer = new TaskCompletionSource<bool>();
-        CodeText.Text = string.Join(" ", code.PadLeft(6, '0').ToCharArray());
-        CodeBox.Visibility = Visibility.Visible;
-        // iOS 27's pairing prompt shows only "Pair", no code (M2): the code here is for reference.
-        PairStatus.Text = "Tap Pair on your phone, then confirm here. If the phone shows a code, it should match.";
-        PairStatus.Foreground = Brush("Text");
-        PairButton.Visibility = CancelButton.Visibility = Visibility.Collapsed;
-        ConfirmButton.Visibility = RejectButton.Visibility = Visibility.Visible;
-        Open();
-        return codeAnswer.Task;
-    });
-
-    private void Confirm_Click(object sender, RoutedEventArgs e) => AnswerCode(true);
-
-    private void Reject_Click(object sender, RoutedEventArgs e) => AnswerCode(false);
-
-    private void AnswerCode(bool accept)
-    {
-        ConfirmButton.Visibility = RejectButton.Visibility = Visibility.Collapsed;
-        PairStatus.Text = accept ? "Finishing… (tap Pair on the phone if you haven't)" : "Rejecting…";
-        codeAnswer?.TrySetResult(accept);
+        switch (step)
+        {
+            case "CONNECTING":
+                ShowPairStep("Found it. Connecting…", cancel: false);
+                break;
+            case "TAP PAIR":
+                ShowPairStep("Tap Pair on your phone.", cancel: false);
+                Open();
+                break;
+        }
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e) => pairing?.Cancel();
@@ -141,7 +126,6 @@ public partial class PanelWindow : Window
         PairStatus.Foreground = problem ? Brush("Accent") : Brush("Text");
         PairButton.Visibility = cancel || pairing is not null ? Visibility.Collapsed : Visibility.Visible;
         CancelButton.Visibility = cancel ? Visibility.Visible : Visibility.Collapsed;
-        ConfirmButton.Visibility = RejectButton.Visibility = Visibility.Collapsed;
     }
 
     // MARK: - Settings

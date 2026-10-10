@@ -115,17 +115,36 @@ func recognizeLines(in image: CGImage, orientation: CGImagePropertyOrientation) 
     }
 }
 
-/// Length-weighted median slope of the long lines, in radians (pixel space, y down).
-/// Only lines at least half as long as the longest one count: short items (table cells, single
-/// words) come back with near- or exactly-axis-aligned quads that carry no tilt information.
+/// Page tilt in radians (pixel space, y down): a weighted median over two kinds of evidence.
+/// - Line slopes: Vision's quads follow the text on some photos but come back exactly level on
+///   others (M0: every quad on the table slide was 0.00 deg), so level quads are skipped and only
+///   lines at least half as long as the longest count.
+/// - Neighbour slopes: two items side by side on roughly the same row (table cells, split lines)
+///   share a baseline, so the slope between their centres is the tilt. Weighted by distance.
 func estimateSkew(_ raw: [RawLine]) -> CGFloat {
-    let all = raw.compactMap { line -> (angle: CGFloat, weight: CGFloat)? in
+    let quads = raw.compactMap { line -> (angle: CGFloat, weight: CGFloat)? in
         let dx = line.corners[1].x - line.corners[0].x, dy = line.corners[1].y - line.corners[0].y
         guard line.text.count >= 4, dy != 0 else { return nil }
         return (atan2(dy, dx), hypot(dx, dy))
     }
-    let longest = all.map { $0.weight }.max() ?? 0
-    let samples = all.filter { $0.weight >= 0.5 * longest }.sorted { $0.angle < $1.angle }
+    let longest = quads.map { $0.weight }.max() ?? 0
+    var samples = quads.filter { $0.weight >= 0.5 * longest }
+
+    let boxes = raw.map { line -> CGRect in
+        let xs = line.corners.map { $0.x }, ys = line.corners.map { $0.y }
+        return CGRect(x: xs.min() ?? 0, y: ys.min() ?? 0, width: (xs.max() ?? 0) - (xs.min() ?? 0),
+                      height: (ys.max() ?? 0) - (ys.min() ?? 0))
+    }
+    for i in boxes.indices {
+        for j in boxes.indices where boxes[j].minX > boxes[i].maxX {
+            let (a, b) = (boxes[i], boxes[j])
+            let overlap = min(a.maxY, b.maxY) - max(a.minY, b.minY)
+            guard overlap >= 0.3 * min(a.height, b.height) else { continue }
+            let (dx, dy) = (b.midX - a.midX, b.midY - a.midY)
+            samples.append((atan2(dy, dx), dx))
+        }
+    }
+    samples.sort { $0.angle < $1.angle }
     let half = samples.reduce(0) { $0 + $1.weight } / 2
     var running: CGFloat = 0
     for sample in samples {

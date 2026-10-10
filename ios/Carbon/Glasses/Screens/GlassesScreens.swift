@@ -72,7 +72,7 @@ enum GlassesScreens {
 
     // MARK: - Pieces
 
-    private static func header(_ target: String) -> some DisplayableView {
+    private static func header(_ target: String) -> some ViewComponent {
         FlexBox(direction: .row, spacing: 8) {
             Text("CARBON", style: .meta, color: .secondary)
                 .flexGrow(1)

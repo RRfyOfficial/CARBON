@@ -1,0 +1,11 @@
+// CARBON · Local.xcconfig
+// Copy this file to Local.xcconfig in the same folder and fill in both values.
+// Local.xcconfig is gitignored. Never commit it.
+
+// Your Apple Developer Team ID. A free Apple ID's Personal Team works.
+// To find it, run this on your Mac and read the OU= field:
+//   security find-certificate -c "Apple Development" -p | openssl x509 -noout -subject
+DEVELOPMENT_TEAM = ABCDE12345
+
+// A bundle ID nobody else uses. Letters, digits and dots only (no hyphens).
+CARBON_BUNDLE_ID = com.yourname.Carbon

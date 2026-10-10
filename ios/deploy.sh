@@ -18,10 +18,13 @@ main() {
     echo "[deploy] Missing ios/.env.local. Copy .env.local.example to .env.local and fill it in (CLAUDE.md, section 4)."
     exit 1
   fi
+  if [ ! -f Config/Local.xcconfig ]; then
+    echo "[deploy] Missing ios/Config/Local.xcconfig (Team ID + bundle ID). See CLAUDE.md, section 4."
+    exit 1
+  fi
   # shellcheck disable=SC1091
   source .env.local
   : "${CARBON_UDID:?CARBON_UDID is empty in ios/.env.local}"
-  : "${CARBON_BUNDLE_ID:?CARBON_BUNDLE_ID is empty in ios/.env.local}"
 
   # 1. Get the latest code from GitHub (refuses if the iMac clone has local edits)
   bash scripts/mac.sh pull
@@ -43,10 +46,11 @@ main() {
 
   # 4. Install and launch (no debugger attached, which avoids most iOS 27 quirks)
   APP="build/device/Build/Products/Debug-iphoneos/Carbon.app"
-  echo "[deploy] Installing..."
+  BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")"
+  echo "[deploy] Installing $BUNDLE_ID..."
   xcrun devicectl device install app --device "$CARBON_UDID" "$APP"
   echo "[deploy] Launching..."
-  xcrun devicectl device process launch --device "$CARBON_UDID" "$CARBON_BUNDLE_ID"
+  xcrun devicectl device process launch --device "$CARBON_UDID" "$BUNDLE_ID"
 
   echo "[deploy] CARBON deployed."
 }

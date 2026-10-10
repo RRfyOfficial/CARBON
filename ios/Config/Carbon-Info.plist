@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Merged into Xcode's generated Info.plist. Keys follow Meta's iOS integration guide and its DisplayAccess sample. -->
+
+	<!-- The Meta AI app returns to CARBON through carbon:// during registration -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>carbon</string>
+			</array>
+		</dict>
+	</array>
+
+	<!-- Meta Wearables Device Access Toolkit. MetaAppID and ClientToken stay empty:
+	     Developer Mode skips attestation (SPEC 11.5) -->
+	<key>MWDAT</key>
+	<dict>
+		<key>AppLinkURLScheme</key>
+		<string>carbon://</string>
+		<key>MetaAppID</key>
+		<string></string>
+		<key>ClientToken</key>
+		<string></string>
+		<key>TeamID</key>
+		<string>$(DEVELOPMENT_TEAM)</string>
+	</dict>
+
+	<!-- Bluetooth LE: discovery, session setup and control. U2 decides whether more modes are needed -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>bluetooth-central</string>
+	</array>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>CARBON uses Bluetooth to connect to your glasses.</string>
+
+	<!-- Wi-Fi: photo transfer and display streaming from the glasses -->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>CARBON uses your local network to receive photos from your glasses over Wi-Fi.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_bonjour._tcp</string>
+	</array>
+</dict>
+</plist>

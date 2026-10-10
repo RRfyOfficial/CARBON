@@ -2,6 +2,8 @@
 .env.local
 ios/.env.local
 ios/Config/Local.xcconfig
+# Fixture photos from the glasses show the room and screens; kept locally, never committed (M0)
+ios/CarbonTests/Fixtures/photos/
 *.pem
 *.p12
 *.mobileprovision

@@ -35,7 +35,8 @@ struct LastScanPanel: View {
     private func metaLine(_ scan: Scan) -> String {
         let time = scan.createdAt.formatted(date: .omitted, time: .shortened)
         let seconds = scan.timings.delivered.map { String(format: " · T+%.1fs", Double($0) / 1_000) } ?? ""
-        return "\(time) · \(scan.charCount) CHARS\(seconds)"
+        let warning = CutEdge.advice(for: scan.cutEdges).map { " · \($0)" } ?? ""
+        return "\(time) · \(scan.charCount) CHARS\(seconds)\(warning)"
     }
 }
 

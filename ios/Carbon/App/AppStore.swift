@@ -147,9 +147,11 @@ final class AppStore {
                 router.show(.error(.openToCopy, elapsed: elapsed))
                 await returnToMain(after: .milliseconds(2_500))
             } else {
-                await router.showDoneWithTick(GlassesScreen.Done(chars: scan.charCount, elapsed: elapsed))
+                let done = GlassesScreen.Done(chars: scan.charCount, elapsed: elapsed, warning: CutEdge.advice(for: scan.cutEdges))
+                await router.showDoneWithTick(done)
                 ticks.play(.done)
-                await returnToMain(after: .milliseconds(1_500))
+                // Linger a little longer when there's advice to read.
+                await returnToMain(after: .milliseconds(done.warning == nil ? 1_500 : 3_000))
             }
         case .failure(let error):
             ticks.play(.error)

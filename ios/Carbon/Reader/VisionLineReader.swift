@@ -7,13 +7,15 @@ import Vision
 
 nonisolated struct VisionLineReader: TextReader {
     func read(_ photo: Data) async throws -> ReadText {
-        let lines = try await Self.recognize(photo)
-        return ReadingOrder.blocks(from: lines)
+        let (lines, imageHeight) = try await Self.recognize(photo)
+        var text = ReadingOrder.blocks(from: lines)
+        text.cutEdges = ReadingOrder.cutEdges(of: lines, imageHeight: imageHeight)
+        return text
     }
 
-    /// Decoding and recognition run off the main actor.
+    /// Decoding and recognition run off the main actor. Returns the lines and the upright image height.
     @concurrent
-    private static func recognize(_ photo: Data) async throws -> [RecognizedLine] {
+    private static func recognize(_ photo: Data) async throws -> (lines: [RecognizedLine], imageHeight: CGFloat) {
         guard let source = CGImageSourceCreateWithData(photo as CFData, nil) else {
             throw ReaderError.undecodableImage
         }
@@ -37,10 +39,11 @@ nonisolated struct VisionLineReader: TextReader {
         let height = CGFloat(quarterTurn.contains(orientation) ? image.width : image.height)
         func pixel(_ p: NormalizedPoint) -> CGPoint { CGPoint(x: p.x * width, y: (1 - p.y) * height) }
 
-        return observations.compactMap { observation in
+        let lines = observations.compactMap { observation -> RecognizedLine? in
             guard let text = observation.topCandidates(1).first?.string, !text.isEmpty else { return nil }
             let corners = [observation.topLeft, observation.topRight, observation.bottomRight, observation.bottomLeft]
             return RecognizedLine(text: text, corners: corners.map(pixel))
         }
+        return (lines, height)
     }
 }

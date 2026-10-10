@@ -10,10 +10,17 @@ nonisolated struct RecognizedLine: Sendable, Equatable {
     let corners: [CGPoint]
 }
 
+/// Where recognized text runs into the photo's edge, so a line beyond it was probably cut off.
+nonisolated enum CutEdge: String, Codable, Sendable {
+    case top
+    case bottom
+}
+
 /// Text in reading order: blocks of rows, top to bottom. Each row is already joined left to right.
 nonisolated struct ReadText: Sendable, Equatable {
     var blocks: [[String]]
     var skewDegrees: Double = 0
+    var cutEdges: Set<CutEdge> = []
 
     /// Fewer than 2 recognized characters counts as no text (SPEC 8.4).
     var isEmpty: Bool {

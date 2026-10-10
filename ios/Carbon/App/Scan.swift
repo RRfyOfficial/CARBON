@@ -66,6 +66,8 @@ nonisolated struct Scan: Codable, Identifiable, Equatable, Sendable {
     var timings: StageTimings
     var delivery: DeliveryStatus
     var photoBytes: Int?
+    /// Text ran into the photo's top or bottom edge, so some was probably cut off.
+    var cutEdges: Set<CutEdge>?
 
     var charCount: Int { text.count }
 }

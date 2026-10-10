@@ -115,15 +115,17 @@ func recognizeLines(in image: CGImage, orientation: CGImagePropertyOrientation) 
     }
 }
 
-/// Length-weighted median slope of the lines, in radians (pixel space, y down).
-/// Vision returns exactly axis-aligned quads for some short items (table cells), which carry no
-/// tilt information, so exactly-zero slopes are skipped; long lines dominate the estimate.
+/// Length-weighted median slope of the long lines, in radians (pixel space, y down).
+/// Only lines at least half as long as the longest one count: short items (table cells, single
+/// words) come back with near- or exactly-axis-aligned quads that carry no tilt information.
 func estimateSkew(_ raw: [RawLine]) -> CGFloat {
-    let samples = raw.compactMap { line -> (angle: CGFloat, weight: CGFloat)? in
+    let all = raw.compactMap { line -> (angle: CGFloat, weight: CGFloat)? in
         let dx = line.corners[1].x - line.corners[0].x, dy = line.corners[1].y - line.corners[0].y
         guard line.text.count >= 4, dy != 0 else { return nil }
         return (atan2(dy, dx), hypot(dx, dy))
-    }.sorted { $0.angle < $1.angle }
+    }
+    let longest = all.map { $0.weight }.max() ?? 0
+    let samples = all.filter { $0.weight >= 0.5 * longest }.sorted { $0.angle < $1.angle }
     let half = samples.reduce(0) { $0 + $1.weight } / 2
     var running: CGFloat = 0
     for sample in samples {
@@ -218,8 +220,9 @@ func collapseWhitespace(_ s: String) -> String {
     s.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
 }
 
-/// Folds typographic variants a reader treats as the same text (curly quotes, dashes, bullet
-/// glyphs, non-breaking spaces), so CER measures recognition rather than glyph choice.
+/// Folds typographic variants a reader treats as the same text (curly quotes, dashes, non-breaking
+/// spaces) and drops bullet glyphs, so CER measures recognition rather than glyph choice.
+/// Vision does not output list bullets at all (M0 fixture run), so they are layout, not text.
 func canonical(_ s: String) -> String {
     var out = ""
     out.reserveCapacity(s.count)
@@ -230,7 +233,7 @@ func canonical(_ s: String) -> String {
         case "\u{2012}", "\u{2013}", "\u{2014}", "\u{2212}": out.append("-")
         case "\u{2026}": out.append("...")
         case "\u{00A0}", "\u{202F}": out.append(" ")
-        case "\u{25CF}", "\u{25AA}", "\u{25E6}", "\u{2023}", "\u{2219}", "\u{00B7}": out.append("\u{2022}")
+        case "\u{2022}", "\u{25CF}", "\u{25AA}", "\u{25E6}", "\u{2023}", "\u{2219}", "\u{00B7}": continue
         default: out.append(ch)
         }
     }

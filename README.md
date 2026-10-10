@@ -22,8 +22,8 @@ No internet in the scan path, no paid services, no cloud OCR.
 | M1: scan → phone clipboard | ✅ Done 2026-10-10. Body-text slides read with 0% errors; 95% of scans finish within 7.5 s |
 | M2: laptop target | ✅ Done 2026-10-10. Clipboard and autopaste on Windows; autopaste 11/11 in the right window; 95% of scans within 6.7 s; nothing lost when the laptop is out of reach |
 | M3: settings, history, detail scan, polish | ✅ Done 2026-10-10. Settings and history on the glasses, RESEND, and a detail scan that reads fine print (the dense slide went from 24% errors to 0%) |
-| M4: Clean mode (headings, lists, tables) | Next |
-| M5: public release (build it yourself) | Planned |
+| M4: Clean mode (headings, lists, tables) | Later (deferred; the plan is in the SPEC) |
+| M5: public release (build it yourself) | Next |
 
 Details and acceptance criteria: [SPEC.md](SPEC.md), Section 12. Every decision along the way: Section 14.
 
@@ -56,7 +56,7 @@ A step-by-step "build it yourself" guide comes with M5. Until then, this repo is
 **Good to know**
 - **Phone target: keep CARBON open on the phone while scanning.** iOS doesn't let apps write the clipboard from the background. If CARBON wasn't on screen, the glasses say **SAVED · OPEN CARBON TO COPY**, and the text is copied the moment you open CARBON. While a session runs, CARBON keeps the screen from auto-locking.
 - **Folding the glasses ends the session.** Unfolding them brings CARBON back by itself in about 2 seconds.
-- **Tables and fine print:** hold the camera button for a **detail scan**. It takes about 11 s instead of 5-6, and reads small text the fast scan misses. Table rows occasionally come out in the wrong order; Clean mode (M4) fixes that.
+- **Tables and fine print:** hold the camera button for a **detail scan**. It takes about 11 s instead of 5-6, and reads small text the fast scan misses. Table rows occasionally come out in the wrong order; the planned Clean mode fixes that.
 - Bullet dots aren't copied. Apple's text reader doesn't return them, so each bullet item comes out as a plain line.
 
 ### The laptop target (Windows)

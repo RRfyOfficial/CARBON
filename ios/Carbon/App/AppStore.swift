@@ -246,53 +246,6 @@ final class AppStore {
         return rows.joined(separator: "\n")
     }
 
-    // MARK: - Reader lab (debug)
-
-    /// Re-reads the newest kept photos (Keep captures) with several reader variants and logs
-    /// characters, CER against fixture slide `slide`, Vision's observation counts, and reading time.
-    func rereadKeptCaptures(slide: Int) {
-        let dir = URL.documentsDirectory.appending(path: "captures", directoryHint: .isDirectory)
-        let photos = ((try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? [])
-            .filter { $0.pathExtension == "heic" && Int($0.deletingPathExtension().lastPathComponent) != nil }
-            .sorted { $0.lastPathComponent < $1.lastPathComponent }
-            .suffix(4)
-        let truth = FixtureCheck.truth(for: slide)
-        log.add("reader lab · \(photos.count) photo(s) · against slide \(slide)")
-        Task {
-            for url in photos {
-                guard let data = try? Data(contentsOf: url) else { continue }
-                // The glasses store sideways pixels plus an orientation. Upright pixels for Vision,
-                // then the head-roll tilt levelled out as well (turning needs upright pixels).
-                await labRead(url, "sideways + orientation (as now)", VisionLineReader(), data, truth)
-                let upright = await labRead(url, "upright pixels", VisionLineReader(upright: true), data, truth)
-                if let lines = upright?.lines, !lines.isEmpty {
-                    let skew = ReadingOrder.blocks(from: lines).skewDegrees
-                    await labRead(url, String(format: "upright, levelled %.1f°", skew),
-                                  VisionLineReader(rotateDegrees: skew, upright: true), data, truth)
-                }
-                await labRead(url, "upright, turned -2.5°", VisionLineReader(rotateDegrees: -2.5, upright: true), data, truth)
-            }
-            log.add("reader lab · done")
-        }
-    }
-
-    @discardableResult
-    private func labRead(_ url: URL, _ name: String, _ reader: VisionLineReader, _ data: Data, _ truth: String?) async -> VisionLineReader.Output? {
-        let startedAt = ContinuousClock.now
-        do {
-            let output = try await reader.recognizeLines(data)
-            let text = AsIsFormatter().format(ReadingOrder.blocks(from: output.lines), lineBreaks: true)
-            let cer = truth.flatMap { CharacterErrorRate.of(text, truth: $0) }.map { String(format: "%.2f%%", $0 * 100) } ?? "-"
-            log.add("reader lab · \(url.lastPathComponent) · \(name) · \(text.count) chars · CER \(cer) · " +
-                    "\(output.stats.observations) obs (\(output.stats.blank) blank) · \(Pipeline.ms(since: startedAt)) ms" +
-                    (output.stats.device.map { " · on \($0)" } ?? ""))
-            return output
-        } catch {
-            log.add("reader lab · \(url.lastPathComponent) · \(name) · failed: \(error)")
-            return nil
-        }
-    }
-
     // MARK: - App lifecycle
 
     /// Copy-on-open (M0 U5): scans that finished in the background go on the clipboard now.

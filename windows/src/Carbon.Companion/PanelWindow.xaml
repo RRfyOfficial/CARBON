@@ -27,7 +27,10 @@
                 <StackPanel x:Name="PairingSection">
                     <Rectangle Style="{StaticResource Hairline}" />
                     <TextBlock Style="{StaticResource Label}" Text="01 / PAIRING" />
-                    <TextBlock x:Name="CodeText" Style="{StaticResource Readout}" FontSize="44" HorizontalAlignment="Center" Margin="0,14,0,4" Visibility="Collapsed" />
+                    <!-- DownOnly: the 6 digits shrink to fit the panel instead of being cut off. -->
+                    <Viewbox x:Name="CodeBox" StretchDirection="DownOnly" Stretch="Uniform" HorizontalAlignment="Center" Margin="0,14,0,4" Visibility="Collapsed">
+                        <TextBlock x:Name="CodeText" Style="{StaticResource Readout}" FontSize="40" />
+                    </Viewbox>
                     <TextBlock x:Name="PairStatus" Style="{StaticResource Body}" Margin="0,10,0,0"
                                Text="Open CARBON on your phone, then pair." />
                     <StackPanel Orientation="Horizontal" Margin="0,12,0,0">

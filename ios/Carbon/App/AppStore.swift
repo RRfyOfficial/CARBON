@@ -262,21 +262,12 @@ final class AppStore {
         Task {
             for url in photos {
                 guard let data = try? Data(contentsOf: url) else { continue }
-                // The plain read three times, to measure how consistent it is; keep the lines that
-                // locate the text for the crop variants.
-                var found: [RecognizedLine] = []
-                var size = CGSize.zero
-                for attempt in 1...3 {
-                    let output = await labRead(url, "baseline #\(attempt)", VisionLineReader(), data, truth)
-                    if found.isEmpty, let output { found = output.lines; size = output.imageSize }
-                }
-                let region = VisionLineReader.textRegion(of: found, in: size) ?? center
-                log.add("reader lab · text region x \(String(format: "%.2f", region.minX)) y \(String(format: "%.2f", region.minY)) " +
-                        "w \(String(format: "%.2f", region.width)) h \(String(format: "%.2f", region.height))")
-                await labRead(url, "text crop 1x", VisionLineReader(crop: region), data, truth)
-                await labRead(url, "text crop 2x", VisionLineReader(upscale: 2, crop: region), data, truth)
-                await labRead(url, "center 70% 1x", VisionLineReader(crop: center), data, truth)
-                await labRead(url, "center 70% 2x", VisionLineReader(upscale: 2, crop: center), data, truth)
+                // Vision's own minimum text height (unset) against explicit values, then a crop.
+                let unset = await labRead(url, "min unset (default)", VisionLineReader(), data, truth)
+                await labRead(url, "min 1/100", VisionLineReader(minimumTextHeight: 1.0 / 100), data, truth)
+                await labRead(url, "min 1/32 explicit", VisionLineReader(minimumTextHeight: 1.0 / 32), data, truth)
+                let region = unset.flatMap { VisionLineReader.textRegion(of: $0.lines, in: $0.imageSize) } ?? center
+                await labRead(url, "min unset · text crop 2x", VisionLineReader(upscale: 2, crop: region), data, truth)
             }
             log.add("reader lab · done")
         }

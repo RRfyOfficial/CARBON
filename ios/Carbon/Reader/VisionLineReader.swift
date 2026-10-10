@@ -19,8 +19,10 @@ nonisolated struct VisionLineReader: TextReader {
         var blank = 0
     }
 
-    /// Smallest text Vision looks for, as a fraction of image height (Vision's default is 1/32).
-    var minimumTextHeight: Float = 1.0 / 32
+    /// Smallest text Vision looks for, as a fraction of image height. nil leaves Vision's own default,
+    /// which behaves better on the phone than setting the documented default of 1/32 explicitly:
+    /// a slide-3 photo read perfectly unset and returned nothing at an explicit 1/32 (M1 reader lab).
+    var minimumTextHeight: Float?
     /// Enlarge the photo (or crop) before recognition. Slide text from a seat can be only 13-15 px tall.
     var upscale: CGFloat = 1
     var languageCorrection = true
@@ -102,7 +104,9 @@ nonisolated struct VisionLineReader: TextReader {
             request.recognitionLevel = .accurate
             request.usesLanguageCorrection = options.languageCorrection
             request.recognitionLanguages = [Locale.Language(identifier: "en-US")]
-            request.minimumTextHeightFraction = options.minimumTextHeight
+            if let minimum = options.minimumTextHeight {
+                request.minimumTextHeightFraction = minimum
+            }
             let observations: [RecognizedTextObservation] = try await request.perform(on: image, orientation: orientation)
             stats.observations = observations.count
             for observation in observations {
@@ -118,7 +122,9 @@ nonisolated struct VisionLineReader: TextReader {
             request.recognitionLevel = .accurate
             request.usesLanguageCorrection = options.languageCorrection
             request.recognitionLanguages = ["en-US"]
-            request.minimumTextHeight = options.minimumTextHeight
+            if let minimum = options.minimumTextHeight {
+                request.minimumTextHeight = minimum
+            }
             try VNImageRequestHandler(cgImage: image, orientation: orientation).perform([request])
             let observations = request.results ?? []
             stats.observations = observations.count

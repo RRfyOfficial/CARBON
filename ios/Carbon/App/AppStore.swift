@@ -126,20 +126,38 @@ final class AppStore {
         }
     }
 
-    /// "214 CHARS COPIED TO PHONE" after switching TARGET to PHONE copied the latest laptop scan.
+    /// What switching TARGET did with the latest scan, e.g. "LAST SCAN (214 CHARS) COPIED TO PHONE".
     private(set) var targetSwitchNote: String?
 
-    /// TARGET picked in the phone app. Switching to PHONE also puts the latest laptop scan on the
-    /// phone clipboard (Russell, M2); CARBON is on screen, so iOS allows the copy. Switching to the
-    /// laptop never resends anything: with AUTOPASTE it would type into whatever window is active.
+    /// TARGET picked in the phone app. The latest scan follows the switch (Russell, M2): to PHONE it
+    /// goes on the phone clipboard (CARBON is on screen, so iOS allows it); to the laptop it's sent
+    /// as CLIPBOARD whatever PASTE says, so a switch never types into whatever window is active.
     func chooseTarget(laptop: Bool) {
         let wasLaptop = usesLaptop
         targetIsLaptop = laptop
         targetSwitchNote = nil
-        guard wasLaptop, !laptop, let last = history.latest, case .laptop = last.target else { return }
-        copy(last)
-        targetSwitchNote = "LAST SCAN (\(last.charCount) CHARS) COPIED TO PHONE"
-        log.add("target → phone · latest laptop scan copied to the phone")
+        guard wasLaptop != usesLaptop, let last = history.latest else { return }
+        switch (last.target, usesLaptop) {
+        case (.laptop, false):
+            copy(last)
+            targetSwitchNote = "LAST SCAN (\(last.charCount) CHARS) COPIED TO PHONE"
+            log.add("target → phone · latest laptop scan copied to the phone")
+        case (.phone, true):
+            targetSwitchNote = "SENDING LAST SCAN (\(last.charCount) CHARS)…"
+            Task {
+                // A new clip id: this is a deliberate resend, so the laptop's dedupe mustn't skip it.
+                let delivery = await laptopTarget.deliver(last.text, id: UUID(), mode: .clipboard)
+                let name = laptopTarget.displayName
+                targetSwitchNote = if case .delivered = delivery {
+                    "LAST SCAN (\(last.charCount) CHARS) ON \(name)'S CLIPBOARD"
+                } else {
+                    "COULDN'T REACH \(name) · LAST SCAN NOT SENT"
+                }
+                log.add("target → laptop · latest phone scan sent as clipboard · \(delivery)")
+            }
+        default:
+            break
+        }
     }
 
     /// Drops the paired computer; the target goes back to the phone.

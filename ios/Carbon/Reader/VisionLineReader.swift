@@ -48,6 +48,15 @@ nonisolated struct VisionLineReader: TextReader {
     var crop: CGRect?
     /// Pin the main stage to this processor (modern engine only); nil lets Vision choose.
     var processor: Processor?
+    /// Turn the whole upright photo by this many degrees before reading (negative = clockwise, which
+    /// levels text rising to the right). Ignores `crop` and `upscale`; lines come back in pixels of
+    /// the turned canvas.
+    var rotateDegrees: Double = 0
+    /// Redraw the decoded photo into a plain 8-bit RGB bitmap before reading.
+    var redraw = false
+    /// Hand Vision the file itself instead of our decoded image (modern engine only). Ignores
+    /// `crop`, `upscale`, `rotateDegrees` and `redraw`.
+    var visionDecodes = false
 
     /// The devices Vision offers for each stage of text recognition on this device, for the log.
     static func computeDevices() -> String {
@@ -99,16 +108,27 @@ nonisolated struct VisionLineReader: TextReader {
         // (the glasses deliver .up); anything else is read whole.
         var region = CGRect(x: 0, y: 0, width: fullWidth, height: fullHeight)
         var input = decoded
-        if let crop = options.crop, orientation == .up {
-            let wanted = CGRect(x: crop.minX * fullWidth, y: crop.minY * fullHeight,
-                                width: crop.width * fullWidth, height: crop.height * fullHeight).integral
-                .intersection(region)
-            if !wanted.isEmpty, let cropped = decoded.cropping(to: wanted) {
-                region = wanted
-                input = cropped
+        var image = decoded
+        var uprightSize = CGSize(width: fullWidth, height: fullHeight)
+        if options.visionDecodes {
+            // Vision reads the file; nothing of ours touches the pixels.
+        } else if options.rotateDegrees != 0, orientation == .up,
+                  let turned = rotated(decoded, by: options.rotateDegrees * .pi / 180) {
+            image = turned
+            region = CGRect(x: 0, y: 0, width: turned.width, height: turned.height)
+            uprightSize = region.size
+        } else {
+            if let crop = options.crop, orientation == .up {
+                let wanted = CGRect(x: crop.minX * fullWidth, y: crop.minY * fullHeight,
+                                    width: crop.width * fullWidth, height: crop.height * fullHeight).integral
+                    .intersection(region)
+                if !wanted.isEmpty, let cropped = decoded.cropping(to: wanted) {
+                    region = wanted
+                    input = cropped
+                }
             }
+            image = options.upscale > 1 || options.redraw ? (scaled(input, by: max(options.upscale, 1)) ?? input) : input
         }
-        let image = options.upscale > 1 ? (scaled(input, by: options.upscale) ?? input) : input
         let scale = CGFloat(image.width) / region.width
 
         // Vision's points are normalized to the (cropped, scaled) upright image with a bottom-left
@@ -119,8 +139,9 @@ nonisolated struct VisionLineReader: TextReader {
         func pixel(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
             CGPoint(x: region.minX + x * width / scale, y: region.minY + (1 - y) * height / scale)
         }
-        let uprightSize = quarterTurn.contains(orientation) ? CGSize(width: fullHeight, height: fullWidth)
-                                                             : CGSize(width: fullWidth, height: fullHeight)
+        if quarterTurn.contains(orientation) {
+            uprightSize = CGSize(width: uprightSize.height, height: uprightSize.width)
+        }
 
         var stats = Stats()
         var lines: [RecognizedLine] = []
@@ -138,7 +159,9 @@ nonisolated struct VisionLineReader: TextReader {
                 request.setComputeDevice(device, for: .main)
                 stats.device = device.map(String.init(describing:)) ?? "\(processor.rawValue) not offered, Vision chose"
             }
-            let observations: [RecognizedTextObservation] = try await request.perform(on: image, orientation: orientation)
+            let observations: [RecognizedTextObservation] = options.visionDecodes
+                ? try await request.perform(on: photo, orientation: nil)
+                : try await request.perform(on: image, orientation: orientation)
             stats.observations = observations.count
             for observation in observations {
                 guard let text = observation.topCandidates(1).first?.string, !text.isEmpty else {
@@ -183,6 +206,25 @@ nonisolated struct VisionLineReader: TextReader {
         let normalized = CGRect(x: box.minX / size.width, y: box.minY / size.height,
                                 width: box.width / size.width, height: box.height / size.height)
         return normalized.intersection(CGRect(x: 0, y: 0, width: 1, height: 1))
+    }
+
+    /// The image turned by `radians` around its centre (negative = clockwise on screen), on a canvas
+    /// big enough to keep every corner; the uncovered corners are white.
+    private static func rotated(_ image: CGImage, by radians: CGFloat) -> CGImage? {
+        let (w, h) = (CGFloat(image.width), CGFloat(image.height))
+        let (c, s) = (abs(cos(radians)), abs(sin(radians)))
+        let (width, height) = (Int((w * c + h * s).rounded(.up)), Int((w * s + h * c).rounded(.up)))
+        guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                                      space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
+        context.setFillColor(red: 1, green: 1, blue: 1, alpha: 1)
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        context.interpolationQuality = .high
+        // CoreGraphics is y-up, so a negative angle turns the picture clockwise.
+        context.translateBy(x: CGFloat(width) / 2, y: CGFloat(height) / 2)
+        context.rotate(by: radians)
+        context.draw(image, in: CGRect(x: -w / 2, y: -h / 2, width: w, height: h))
+        return context.makeImage()
     }
 
     private static func scaled(_ image: CGImage, by factor: CGFloat) -> CGImage? {

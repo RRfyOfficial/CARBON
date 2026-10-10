@@ -41,7 +41,9 @@ What this guarantees:
 - The phone sends clips only to the central whose `hello` carried its paired laptop id (`updateValue(_:for:onSubscribedCentrals:)` with that one central).
 - One paired laptop per phone and one paired phone per laptop (v1).
 
-Forgetting: the companion's **FORGET PHONE** removes the Windows bond. The phone's **FORGET COMPUTER** drops the stored laptop, but iOS apps can't remove a system bond, so both sides tell the wearer to also remove it in system settings (iPhone: *Settings → Bluetooth → the laptop → Forget This Device*). A bond left on only one side makes Windows reuse dead keys, and every connection fails with `Unreachable`.
+Pairing over LE also makes Windows and iOS derive a Bluetooth Classic pairing (Windows lists the phone a second time, under its Classic name). The companion notes which Classic pairing appeared during PAIR A PHONE and removes it together with the LE bond.
+
+Forgetting: the companion's **FORGET PHONE** removes the Windows bond and its Classic twin. The phone's **FORGET COMPUTER** drops the stored laptop, but iOS apps can't remove a system bond, so both sides tell the wearer to also remove it in system settings (iPhone: *Settings → Bluetooth → the laptop → Forget This Device*). A bond left on only one side makes Windows reuse dead keys, and every connection fails with `Unreachable`.
 
 On every reconnect the companion fetches the characteristics again (uncached), renews the `P2L` subscription, and sends `hello` again. The phone answers each `hello`.
 

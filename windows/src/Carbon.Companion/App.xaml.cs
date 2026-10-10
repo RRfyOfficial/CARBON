@@ -65,10 +65,11 @@ public partial class App : Application
         if (Settings.PairedDeviceId is { } id) await Link.StartAsync(id, Settings.PairedPhoneName);
     }
 
-    public async Task PairedAsync(string deviceId, string? phoneName)
+    public async Task PairedAsync(string deviceId, string? phoneName, string? classicTwinId)
     {
         Settings.PairedDeviceId = deviceId;
         Settings.PairedPhoneName = phoneName;
+        Settings.PairedClassicTwinId = classicTwinId;
         Settings.Save();
         Log.Write($"paired with '{phoneName}'");
         await Link.StartAsync(deviceId, phoneName);
@@ -77,9 +78,10 @@ public partial class App : Application
 
     public async Task ForgetPhoneAsync()
     {
-        if (Settings.PairedDeviceId is { } id) await Link.ForgetAsync(id);
+        if (Settings.PairedDeviceId is { } id) await Link.ForgetAsync(id, Settings.PairedClassicTwinId);
         Settings.PairedDeviceId = null;
         Settings.PairedPhoneName = null;
+        Settings.PairedClassicTwinId = null;
         Settings.Save();
         panel.ShowLink(LinkState.NoPhone, null, adapterProblem);
     }

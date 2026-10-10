@@ -47,6 +47,7 @@ final class LaptopLink: NSObject {
     }
 
     static let ackTimeout: Duration = .seconds(2)
+    static let sendBackstop: Duration = .seconds(10)
 
     private(set) var laptop: Laptop? {
         didSet { UserDefaults.standard.set(try? JSONEncoder().encode(laptop), forKey: Keys.laptop) }
@@ -105,6 +106,11 @@ final class LaptopLink: NSObject {
                 outbox.append((frame, central, index == frames.count - 1 ? clipID : nil))
             }
             flush()
+            // Backstop in case the frames never drain (the 2 s ack timer only starts after the last one).
+            Task { [weak self] in
+                try? await Task.sleep(for: Self.sendBackstop)
+                self?.finish(clipID, .noAck)
+            }
         }
     }
 

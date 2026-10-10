@@ -89,7 +89,7 @@ public partial class PanelWindow : Window
         CodeText.Visibility = Visibility.Collapsed;
         if (result.Ok)
         {
-            await app.PairedAsync(result.DeviceId!, result.PhoneName);
+            await app.PairedAsync(result.DeviceId!, result.PhoneName, result.ClassicTwinId);
             ShowPairStep($"Paired with {result.PhoneName}.", cancel: false);
             PairButton.Visibility = Visibility.Collapsed;
             PairingSection.Visibility = Visibility.Collapsed;

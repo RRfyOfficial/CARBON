@@ -22,6 +22,8 @@ public sealed class CompanionSettings
     public string? LaptopName { get; set; }
     public string? PairedDeviceId { get; set; }
     public string? PairedPhoneName { get; set; }
+    /// <summary>The Bluetooth Classic pairing derived with the LE bond; removed with it on FORGET.</summary>
+    public string? PairedClassicTwinId { get; set; }
 
     [System.Text.Json.Serialization.JsonIgnore]
     public string EffectiveLaptopName => string.IsNullOrWhiteSpace(LaptopName) ? Environment.MachineName.ToUpperInvariant() : LaptopName;

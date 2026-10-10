@@ -22,7 +22,11 @@ public enum LinkState
     VersionMismatch,
 }
 
-public sealed record PairResult(string? DeviceId, string? PhoneName, string? Problem)
+/// <summary>
+/// A finished pairing. <see cref="ClassicTwinId"/> is the Bluetooth Classic pairing Windows and iOS
+/// derive alongside the LE bond; it has to go with it on FORGET, or Windows reuses its stale keys.
+/// </summary>
+public sealed record PairResult(string? DeviceId, string? PhoneName, string? Problem, string? ClassicTwinId = null)
 {
     public bool Ok => DeviceId is not null;
 }
@@ -146,19 +150,27 @@ public sealed class PhoneLink(Hello hello, Action<string> log) : IAsyncDisposabl
             }
         };
         progress("CODE");
+        var classicBefore = await PairedClassicIdsAsync();
         var result = await custom.PairAsync(DevicePairingKinds.ConfirmPinMatch | DevicePairingKinds.DisplayPin,
                                             DevicePairingProtectionLevel.EncryptionAndAuthentication);
         log($"pairing: {result.Status}");
+        string? twin = null;
+        if (result.Status is DevicePairingResultStatus.Paired or DevicePairingResultStatus.AlreadyPaired)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(1));
+            twin = (await PairedClassicIdsAsync()).Except(classicBefore).FirstOrDefault();
+            log(twin is null ? "no Classic twin appeared" : "noted the Classic twin of the bond");
+        }
         return result.Status switch
         {
-            DevicePairingResultStatus.Paired or DevicePairingResultStatus.AlreadyPaired => new(phone.DeviceId, info.Value.Name, null),
+            DevicePairingResultStatus.Paired or DevicePairingResultStatus.AlreadyPaired => new(phone.DeviceId, info.Value.Name, null, twin),
             DevicePairingResultStatus.RejectedByHandler => new(null, null, "REJECTED"),
             _ => new(null, null, $"PAIRING FAILED ({result.Status}) · ON THE PHONE, FORGET {Environment.MachineName.ToUpperInvariant()} IN BLUETOOTH SETTINGS IF IT'S LISTED, THEN TRY AGAIN"),
         };
     }
 
-    /// <summary>Removes the Windows bond with the phone.</summary>
-    public async Task ForgetAsync(string deviceId)
+    /// <summary>Removes the Windows bond with the phone, and its Classic twin when known.</summary>
+    public async Task ForgetAsync(string deviceId, string? classicTwinId)
     {
         await StopAsync();
         using var phone = await BluetoothLEDevice.FromIdAsync(deviceId);
@@ -167,8 +179,22 @@ public sealed class PhoneLink(Hello hello, Action<string> log) : IAsyncDisposabl
             var result = await phone.DeviceInformation.Pairing.UnpairAsync();
             log($"forgot the phone: {result.Status}");
         }
+        if (classicTwinId is not null && await BluetoothDevice.FromIdAsync(classicTwinId) is { } twin)
+        {
+            using (twin)
+            {
+                var result = await twin.DeviceInformation.Pairing.UnpairAsync();
+                log($"forgot its Classic twin: {result.Status}");
+            }
+        }
         PhoneName = null;
         SetState(LinkState.NoPhone);
+    }
+
+    private static async Task<HashSet<string>> PairedClassicIdsAsync()
+    {
+        var paired = await DeviceInformation.FindAllAsync(BluetoothDevice.GetDeviceSelectorFromPairingState(true));
+        return paired.Select(d => d.Id).ToHashSet();
     }
 
     public async ValueTask DisposeAsync() => await StopAsync();

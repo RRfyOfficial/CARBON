@@ -25,6 +25,6 @@ nonisolated enum ReaderError: Error, Equatable {
     case undecodableImage
 }
 
-protocol TextReader: Sendable {
+nonisolated protocol TextReader: Sendable {
     func read(_ photo: Data) async throws -> ReadText
 }

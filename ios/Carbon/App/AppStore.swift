@@ -80,7 +80,10 @@ final class AppStore {
     // MARK: - Triggers
 
     func scan(_ kind: ScanKind = .fast) {
-        guard !isScanning, !pipeline.photoSource.isBusy else { return }  // one capture in flight
+        guard !isScanning, !pipeline.photoSource.isBusy else {  // one capture in flight
+            log.add("scan ignored: one is in flight (scanning \(isScanning), photo slot busy \(pipeline.photoSource.isBusy))")
+            return
+        }
         guard session.phase == .running else {
             log.add("scan ignored: session is \(session.phase)")
             return

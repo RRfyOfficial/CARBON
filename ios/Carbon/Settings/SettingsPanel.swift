@@ -1,5 +1,5 @@
-// 04 / SETTINGS (SPEC 6.5): TARGET and PASTE, the paired computer, and the debug toggle.
-// LINE BREAKS and SOUND become settings in M3.
+// 04 / SETTINGS (SPEC 6.5): TARGET, PASTE, LINE BREAKS, SOUND, the paired computer, and the debug
+// toggle. The glasses' SETTINGS screen changes the same values.
 
 import SwiftUI
 
@@ -19,14 +19,18 @@ struct SettingsPanel: View {
                 choice("PASTE", options: [("CLIPBOARD", PasteMode.clipboard), ("AUTOPASTE", .autopaste)],
                        selected: store.pasteMode, enabled: true) { store.pasteMode = $0 }
             }
+            choice("LINE BREAKS", options: [("ON", true), ("OFF", false)], selected: store.lineBreaks, enabled: true) {
+                store.lineBreaks = $0
+            }
+            choice("SOUND", options: [("ON", true), ("OFF", false)], selected: store.sound, enabled: true) {
+                store.sound = $0
+            }
             computer
-            row("LINE BREAKS", "ON")
-            row("SOUND", "ON")
             Toggle(isOn: $store.keepCaptures) {
                 Text("KEEP CAPTURES (DEBUG)").tacturaLabel(11, color: Palette.text)
             }
             .tint(Palette.accent)
-            Text("LINE BREAKS AND SOUND BECOME SETTINGS IN M3").tacturaLabel(9, color: Palette.textDim)
+            Text("THE SAME SETTINGS ARE ON THE GLASSES: MAIN › SETTINGS").tacturaLabel(9, color: Palette.textDim)
         }
     }
 

@@ -1,5 +1,6 @@
-// 02 / LAST SCAN and 03 / HISTORY (SPEC 6.6). Browsing never sends anything (SPEC 6.4).
-// RESEND and swipe-to-delete arrive with the laptop target and M3.
+// 02 / LAST SCAN and 03 / HISTORY (SPEC 6.6). Browsing never sends anything (SPEC 6.4): tapping a
+// scan copies it to the phone; RESEND (and DELETE) are in each scan's long-press menu, because the
+// panels are plain stacks, not Lists with swipe actions.
 
 import SwiftUI
 
@@ -52,9 +53,16 @@ struct HistoryPanel: View {
                 ForEach(store.history.scans) { scan in
                     Button { store.copy(scan) } label: { row(scan) }
                         .buttonStyle(.plain)
+                        .contextMenu {
+                            Button("Resend to \(store.usesLaptop ? store.link.laptop?.name ?? "laptop" : "phone")", systemImage: "arrow.clockwise") {
+                                store.resend(scan)
+                            }
+                            Button("Copy", systemImage: "doc.on.doc") { store.copy(scan) }
+                            Button("Delete", systemImage: "trash", role: .destructive) { store.history.remove(scan.id) }
+                        }
                     Rectangle().fill(Palette.line).frame(height: Metrics.hairline)
                 }
-                Text("TAP A SCAN TO COPY IT").tacturaLabel(9, color: Palette.textDim)
+                Text("TAP A SCAN TO COPY IT · HOLD FOR RESEND AND DELETE").tacturaLabel(9, color: Palette.textDim)
                 ChamferButton(title: "CLEAR ALL") { confirmClear = true }
                     .confirmationDialog("Clear all scans?", isPresented: $confirmClear) {
                         Button("Clear all", role: .destructive) { store.history.clear() }

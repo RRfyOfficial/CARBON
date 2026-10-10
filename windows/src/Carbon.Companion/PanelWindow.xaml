@@ -1,0 +1,76 @@
+<Window x:Class="Carbon.Companion.PanelWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:Carbon.Companion"
+        Title="CARBON" Width="360" SizeToContent="Height" MaxHeight="720"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        ResizeMode="NoResize" ShowInTaskbar="False" Topmost="True">
+    <local:ChamferBox Fill="{StaticResource Bg}" Stroke="{StaticResource Line}" Chamfer="14">
+        <Grid>
+            <Rectangle Fill="{StaticResource DotGrid}" />
+            <StackPanel Margin="20,18,20,18">
+
+                <!-- Header -->
+                <Grid>
+                    <TextBlock Style="{StaticResource Label}" Text="CARBON / COMPANION" />
+                    <TextBlock x:Name="VersionText" Style="{StaticResource Label}" Foreground="{StaticResource TextDim}" HorizontalAlignment="Right" />
+                </Grid>
+                <local:ChamferBox x:Name="LinkBadge" Margin="0,12,0,0" HorizontalAlignment="Left"
+                                  Fill="{StaticResource Surface2}" Stroke="{StaticResource LineStrong}" Chamfer="8" Padding="12,6,18,6">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse x:Name="LinkDot" Width="6" Height="6" Fill="{StaticResource TextDim}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <TextBlock x:Name="LinkText" Style="{StaticResource Label}" Foreground="{StaticResource Text}" Text="STARTING" />
+                    </StackPanel>
+                </local:ChamferBox>
+
+                <!-- 01 / PAIRING: while unpaired or pairing -->
+                <StackPanel x:Name="PairingSection">
+                    <Rectangle Style="{StaticResource Hairline}" />
+                    <TextBlock Style="{StaticResource Label}" Text="01 / PAIRING" />
+                    <TextBlock x:Name="CodeText" Style="{StaticResource Readout}" FontSize="44" HorizontalAlignment="Center" Margin="0,14,0,4" Visibility="Collapsed" />
+                    <TextBlock x:Name="PairStatus" Style="{StaticResource Body}" Margin="0,10,0,0"
+                               Text="Open CARBON on your phone, then pair." />
+                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                        <Button x:Name="PairButton" Style="{StaticResource ChamferButton}" Content="PAIR A PHONE" Click="Pair_Click" />
+                        <Button x:Name="ConfirmButton" Style="{StaticResource ChamferButton}" Tag="accent" Content="CONFIRM" Click="Confirm_Click" Visibility="Collapsed" />
+                        <Button x:Name="RejectButton" Style="{StaticResource ChamferButton}" Content="REJECT" Margin="10,0,0,0" Click="Reject_Click" Visibility="Collapsed" />
+                        <Button x:Name="CancelButton" Style="{StaticResource ChamferButton}" Content="CANCEL" Click="Cancel_Click" Visibility="Collapsed" />
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- 02 / RECENT -->
+                <Rectangle Style="{StaticResource Hairline}" />
+                <TextBlock Style="{StaticResource Label}" Text="02 / RECENT" />
+                <TextBlock x:Name="RecentEmpty" Style="{StaticResource Label}" Foreground="{StaticResource TextDim}" Margin="0,10,0,0" Text="NOTHING YET" />
+                <ItemsControl x:Name="RecentList" Margin="0,8,0,0">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type local:RecentClip}">
+                            <Grid Margin="0,3">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="64" />
+                                    <ColumnDefinition Width="80" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Style="{StaticResource Readout}" Text="{Binding Time}" />
+                                <TextBlock Grid.Column="1" Style="{StaticResource Readout}" Text="{Binding Chars}" />
+                                <TextBlock Grid.Column="2" Style="{StaticResource Label}" Foreground="{StaticResource Text}" Text="{Binding Result}" VerticalAlignment="Center" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- 03 / SETTINGS -->
+                <Rectangle Style="{StaticResource Hairline}" />
+                <TextBlock Style="{StaticResource Label}" Text="03 / SETTINGS" Margin="0,0,0,6" />
+                <CheckBox x:Name="AutopasteToggle" Style="{StaticResource Toggle}" Content="ALLOW AUTOPASTE ON THIS PC" Click="Setting_Click" />
+                <CheckBox x:Name="LoginToggle" Style="{StaticResource Toggle}" Content="LAUNCH AT LOGIN" Click="Setting_Click" />
+                <CheckBox x:Name="ToastToggle" Style="{StaticResource Toggle}" Content="TOASTS" Click="Setting_Click" />
+                <TextBlock x:Name="ForgetHint" Style="{StaticResource Body}" Foreground="{StaticResource TextMuted}" FontSize="12" Margin="0,8,0,0" Visibility="Collapsed" />
+                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                    <Button x:Name="ForgetButton" Style="{StaticResource TextButton}" Content="FORGET PHONE" Click="Forget_Click" Margin="0,0,24,0" />
+                    <Button Style="{StaticResource TextButton}" Content="QUIT" Click="Quit_Click" />
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+    </local:ChamferBox>
+</Window>

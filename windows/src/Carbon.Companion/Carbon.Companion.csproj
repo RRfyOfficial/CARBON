@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <!-- Only for the tray NotifyIcon (SPEC 10). -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>CARBON Companion</AssemblyName>
+    <RootNamespace>Carbon.Companion</RootNamespace>
+    <Version>0.1.0</Version>
+    <!-- Single-file publish (SPEC 10): WPF's native libraries have to come along inside the exe. -->
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- WinForms' implicit usings clash with WPF types (Application, Button, ...). -->
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Carbon.Link\Carbon.Link.csproj" />
+    <ProjectReference Include="..\Carbon.Output\Carbon.Output.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The phone app's fonts (OFL), shared rather than copied. -->
+    <Resource Include="..\..\..\ios\Carbon\Resources\Fonts\Doto.ttf" Link="Fonts\Doto.ttf" />
+    <Resource Include="..\..\..\ios\Carbon\Resources\Fonts\SpaceMono-Regular.ttf" Link="Fonts\SpaceMono-Regular.ttf" />
+    <Resource Include="..\..\..\ios\Carbon\Resources\Fonts\SpaceMono-Bold.ttf" Link="Fonts\SpaceMono-Bold.ttf" />
+    <Resource Include="..\..\..\ios\Carbon\Resources\Fonts\SpaceGrotesk.ttf" Link="Fonts\SpaceGrotesk.ttf" />
+  </ItemGroup>
+
+</Project>

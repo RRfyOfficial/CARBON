@@ -12,6 +12,8 @@
 #   test              pull, then run the unit tests on an iOS simulator.
 #   logs [lines]      Copy the app's Documents/logs folder off the iPhone, print the log tail.
 #   captures          Copy the app's Documents/captures off the iPhone, make JPEG copies.
+#   ocr [folder] [opts]  Apple Vision OCR + CER over a folder (default ios/build/phone/captures).
+#                     opts: --truth <file> | --out <dir> | --show  (see tools/ocr.swift)
 #
 # Exit codes:
 #   0 ok · 1 build, test or copy failed · 2 bad usage · 3 iMac clone has local edits
@@ -174,6 +176,14 @@ case "$cmd" in
     ls -l "$OUT/captures-jpg"
     ;;
 
+  ocr)
+    # Reader v1 (SPEC 8.4) on the Mac's Vision, with CER (SPEC 8.3). M0 uses it to pick
+    # the capture configuration. Relative folders are taken from the repo root.
+    folder="${2:-ios/build/phone/captures}"
+    case "$folder" in /*) ;; *) folder="$REPO/$folder" ;; esac
+    swift "$REPO/tools/ocr.swift" "$folder" "${@:3}"
+    ;;
+
   build)
     check_disk
     do_pull
@@ -219,7 +229,7 @@ case "$cmd" in
     ;;
 
   *)
-    echo "usage: mac.sh doctor | pull | switch <branch> | build | test | logs [lines] | captures" >&2
+    echo "usage: mac.sh doctor | pull | switch <branch> | build | test | logs [lines] | captures | ocr [folder] [opts]" >&2
     exit 2
     ;;
 esac

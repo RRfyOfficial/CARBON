@@ -169,11 +169,31 @@ func collapseWhitespace(_ s: String) -> String {
     s.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
 }
 
-/// (S + D + I) / N over Characters (grapheme clusters), case-sensitive. nil when the truth is empty.
+/// Folds typographic variants a reader treats as the same text (curly quotes, dashes, bullet
+/// glyphs, non-breaking spaces), so CER measures recognition rather than glyph choice.
+func canonical(_ s: String) -> String {
+    var out = ""
+    out.reserveCapacity(s.count)
+    for ch in s {
+        switch ch {
+        case "\u{2018}", "\u{2019}", "\u{201A}", "\u{201B}", "\u{2032}": out.append("'")
+        case "\u{201C}", "\u{201D}", "\u{201E}", "\u{201F}", "\u{2033}": out.append("\"")
+        case "\u{2012}", "\u{2013}", "\u{2014}", "\u{2212}": out.append("-")
+        case "\u{2026}": out.append("...")
+        case "\u{00A0}", "\u{202F}": out.append(" ")
+        case "\u{25CF}", "\u{25AA}", "\u{25E6}", "\u{2023}", "\u{2219}", "\u{00B7}": out.append("\u{2022}")
+        default: out.append(ch)
+        }
+    }
+    return out
+}
+
+/// (S + D + I) / N over Characters (grapheme clusters), case-sensitive, after `canonical`
+/// and whitespace collapsing on both sides. nil when the truth is empty.
 func characterErrorRate(ocr: String, truth: String) -> Double? {
-    let reference = Array(collapseWhitespace(truth))
+    let reference = Array(collapseWhitespace(canonical(truth)))
     guard !reference.isEmpty else { return nil }
-    let (hypothesisIDs, referenceIDs) = characterIDs(Array(collapseWhitespace(ocr)), reference)
+    let (hypothesisIDs, referenceIDs) = characterIDs(Array(collapseWhitespace(canonical(ocr))), reference)
     return Double(levenshtein(hypothesisIDs, referenceIDs)) / Double(reference.count)
 }
 

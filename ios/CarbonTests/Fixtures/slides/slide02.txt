@@ -1,0 +1,6 @@
+Why test with users?
+• Designers are not typical users
+• Five participants find most major problems
+• Testing early is cheaper than fixing late
+• Watch what people do, not what they say
+• Iterate: test, fix, and test again

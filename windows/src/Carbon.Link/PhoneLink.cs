@@ -57,6 +57,7 @@ public sealed class PhoneLink(Hello hello, Action<string> log) : IAsyncDisposabl
     /// <summary>INFO's per-launch id at the last set-up: a different one means CARBON restarted.</summary>
     private string? phoneBoot;
     private ushort nextMsgId;
+    private int setUpBusy;
     private static readonly TimeSpan WatchInterval = TimeSpan.FromSeconds(30);
 
     public LinkState State { get; private set; } = LinkState.NoPhone;
@@ -271,15 +272,25 @@ public sealed class PhoneLink(Hello hello, Action<string> log) : IAsyncDisposabl
 
     /// <summary>
     /// On every connect: characteristics (uncached), version, encryption, subscription, hello.
-    /// A failed attempt while still connected is retried, up to 5 times 2 s apart.
+    /// A failed attempt while still connected is retried, up to 5 times 2 s apart. A request that
+    /// arrives while one runs is dropped (Windows reports "services changed" twice on every
+    /// connect); anything it would have caught, the 30 s watch catches.
     /// </summary>
-    private async Task SetUpAsync(int attempt = 1)
+    private async Task SetUpAsync()
     {
-        if (!await TrySetUpAsync() && attempt < 5 && device?.ConnectionStatus == BluetoothConnectionStatus.Connected)
+        if (Interlocked.Exchange(ref setUpBusy, 1) == 1) return;
+        try
         {
-            log($"set-up attempt {attempt} failed; retrying");
-            await Task.Delay(TimeSpan.FromSeconds(2));
-            await SetUpAsync(attempt + 1);
+            for (var attempt = 1; !await TrySetUpAsync(); attempt++)
+            {
+                if (attempt == 5 || device?.ConnectionStatus != BluetoothConnectionStatus.Connected) return;
+                log($"set-up attempt {attempt} failed; retrying");
+                await Task.Delay(TimeSpan.FromSeconds(2));
+            }
+        }
+        finally
+        {
+            Volatile.Write(ref setUpBusy, 0);
         }
     }
 

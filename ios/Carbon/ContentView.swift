@@ -1,32 +1,44 @@
-// Placeholder root view for M1 phase 1. Replaced by the control room in phase 3.
+// The phone app is a minimal control room (SPEC 6.6): one scrolling screen of numbered panels.
+// The glasses are the real app.
 
 import SwiftUI
 
 struct ContentView: View {
+    @Environment(AppStore.self) private var store
+    @State private var showOnboarding = false
+
     var body: some View {
         ZStack {
             DotGridBackground()
-            VStack(alignment: .leading, spacing: Metrics.grid * 2) {
-                Text("01 / CARBON").tacturaLabel()
-                Text("CARBON")
-                    .font(Typeface.display(56))
-                    .foregroundStyle(Palette.text)
-                Text("Carbon copy of whatever is in front of you.")
-                    .font(Typeface.body(17))
-                    .foregroundStyle(Palette.textMuted)
-                Text("M1 · FOUNDATION")
-                    .tacturaLabel(11, color: Palette.text)
-                    .padding(.horizontal, Metrics.grid * 2)
-                    .padding(.vertical, Metrics.grid)
-                    .overlay(ChamferShape().stroke(Palette.lineStrong, lineWidth: Metrics.hairline))
+            ScrollView {
+                VStack(alignment: .leading, spacing: Metrics.grid * 2) {
+                    header
+                    SessionPanel(showOnboarding: $showOnboarding)
+                    LastScanPanel()
+                    HistoryPanel()
+                    SettingsPanel()
+                    DiagnosticsPanel()
+                }
+                .padding(Metrics.grid * 2)
             }
-            .padding(Metrics.grid * 3)
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .preferredColorScheme(.dark)
+        .sheet(isPresented: $showOnboarding) {
+            OnboardingView()
+        }
+        .onAppear {
+            if !store.onboardingDone { showOnboarding = true }
+        }
     }
-}
 
-#Preview {
-    ContentView()
+    private var header: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text("CARBON")
+                .font(Typeface.display(34))
+                .foregroundStyle(Palette.text)
+            Spacer()
+            Text("CONTROL ROOM").tacturaLabel(10)
+        }
+        .padding(.top, Metrics.grid)
+    }
 }

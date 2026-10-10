@@ -50,6 +50,8 @@ final class GlassesSession {
     private(set) var inputs = Badge.off
     /// The wearer asked CARBON to run. Auto-resume only applies while this is true.
     private(set) var wantsRunning = false
+    /// A session has run at least once since launch, so the phone offers RESUME rather than START.
+    private(set) var hasRun = false
 
     @ObservationIgnored var onDisplayReady: ((Display) -> Void)?
     @ObservationIgnored var onDisplayGone: (() -> Void)?
@@ -180,6 +182,7 @@ final class GlassesSession {
         switch state {
         case .started:
             phase = .running
+            hasRun = true
             if activeCamera == nil { attachCamera() }
         case .paused:
             phase = .paused

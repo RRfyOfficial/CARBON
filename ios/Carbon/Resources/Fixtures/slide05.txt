@@ -1,0 +1,6 @@
+Task success by round
+Task Round 1 Round 2 Change
+Find a course 3/5 5/5 +40%
+Add to cart 2/5 4/5 +40%
+Check out 1/5 4/5 +60%
+Edit profile 4/5 5/5 +20%

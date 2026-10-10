@@ -1,0 +1,6 @@
+Reporting findings
+• Lead with the three most severe problems
+• Show a short clip for each problem
+• Pair every problem with a concrete fix
+• Keep the full list in an appendix
+Source: adapted from course notes, Week 6. Severity uses a 0-4 scale.

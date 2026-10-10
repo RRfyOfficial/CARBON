@@ -2,16 +2,18 @@
 # CARBON · mac.sh
 # Runs ON THE LAB iMAC. Claude Code (on the Zephyrus) calls it over SSH:
 #
-#   ssh lab-imac "~/Desktop/carbon/ios/scripts/mac.sh <command>"
+#   ssh lab-imac "bash ~/Desktop/carbon/ios/scripts/mac.sh <command>"
 #
 # Commands:
-#   doctor   Show machine health: Xcode, free disk, repo state, simulators.
-#   pull     Fast-forward the iMac's clone to match GitHub. Never merges.
-#   build    pull, then compile the iOS app for the simulator (no signing, no password).
-#   test     pull, then run the unit tests on an iOS simulator.
+#   doctor            Show machine health: Xcode, free disk, repo state, simulators.
+#   pull              Fast-forward the iMac's clone to match GitHub. Never merges.
+#   switch <branch>   Check out another branch (e.g. spike/m0) and fast-forward it.
+#   build             pull, then compile the iOS app for the simulator (no signing, no password).
+#   test              pull, then run the unit tests on an iOS simulator.
+#   logs [lines]      Copy the app's Documents/logs folder off the iPhone, print the log tail.
 #
 # Exit codes:
-#   0 ok · 1 build or test failed · 2 bad usage · 3 iMac clone has local edits
+#   0 ok · 1 build, test or copy failed · 2 bad usage · 3 iMac clone has local edits
 #   4 Xcode project missing (bootstrap not done yet) · 5 disk almost full
 
 set -euo pipefail
@@ -49,16 +51,20 @@ check_project() {
   fi
 }
 
-do_pull() {
+require_clean() {
   if [ -n "$(git status --porcelain)" ]; then
     say "The iMac clone has local changes. Nobody should edit files on the iMac."
     git status --short
     say "Ask Russell how to handle these before continuing."
     exit 3
   fi
+}
+
+do_pull() {
+  require_clean
   git fetch --quiet origin
   git pull --ff-only --quiet
-  say "Synced to $(git log -1 --format='%h %s')"
+  say "Synced $(git rev-parse --abbrev-ref HEAD) to $(git log -1 --format='%h %s')"
 }
 
 pick_simulator() {
@@ -107,6 +113,47 @@ case "$cmd" in
     do_pull
     ;;
 
+  switch)
+    branch="${2:-}"
+    if [ -z "$branch" ]; then
+      echo "usage: mac.sh switch <branch>" >&2
+      exit 2
+    fi
+    require_clean
+    git fetch --quiet origin
+    git checkout --quiet "$branch"
+    do_pull
+    ;;
+
+  logs)
+    # The app keeps its diagnostic files in Documents/logs. devicectl copies them
+    # off the phone over the network (read-only for the phone, no password).
+    ENV_FILE="$REPO/ios/.env.local"
+    XCCONFIG="$REPO/ios/Config/Local.xcconfig"
+    if [ ! -f "$ENV_FILE" ] || [ ! -f "$XCCONFIG" ]; then
+      say "Needs ios/.env.local (CARBON_UDID) and ios/Config/Local.xcconfig (CARBON_BUNDLE_ID)."
+      exit 2
+    fi
+    # shellcheck disable=SC1090
+    source "$ENV_FILE"
+    BUNDLE_ID="$(sed -n 's/^CARBON_BUNDLE_ID *= *//p' "$XCCONFIG" | tr -d '[:space:]')"
+    OUT="$REPO/ios/build/phone"
+    rm -rf "$OUT" && mkdir -p "$OUT"
+    if ! xcrun devicectl device copy from --quiet \
+        --device "$CARBON_UDID" \
+        --domain-type appDataContainer --domain-identifier "$BUNDLE_ID" \
+        --source Documents/logs --destination "$OUT/logs" >/dev/null; then
+      say "Couldn't copy from the phone. Is it unlocked, on the lab network, and has the app run once?"
+      exit 1
+    fi
+    say "Copied to ios/build/phone/logs:"
+    ls -l "$OUT/logs"
+    if [ -f "$OUT/logs/lab.log" ]; then
+      say "Last ${2:-150} lines of lab.log:"
+      tail -n "${2:-150}" "$OUT/logs/lab.log"
+    fi
+    ;;
+
   build)
     check_disk
     do_pull
@@ -152,7 +199,7 @@ case "$cmd" in
     ;;
 
   *)
-    echo "usage: mac.sh doctor | pull | build | test" >&2
+    echo "usage: mac.sh doctor | pull | switch <branch> | build | test | logs [lines]" >&2
     exit 2
     ;;
 esac

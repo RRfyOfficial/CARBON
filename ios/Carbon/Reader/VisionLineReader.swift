@@ -57,6 +57,9 @@ nonisolated struct VisionLineReader: TextReader {
     /// Hand Vision the file itself instead of our decoded image (modern engine only). Ignores
     /// `crop`, `upscale`, `rotateDegrees` and `redraw`.
     var visionDecodes = false
+    /// Decode with the file's orientation applied, so Vision gets upright pixels and .up. The glasses
+    /// store 1080x1920 sideways pixels plus an orientation; `crop` and `rotateDegrees` need this.
+    var upright = false
 
     /// The devices Vision offers for each stage of text recognition on this device, for the log.
     static func computeDevices() -> String {
@@ -96,12 +99,27 @@ nonisolated struct VisionLineReader: TextReader {
             throw ReaderError.undecodableImage
         }
         let index = CGImageSourceGetPrimaryImageIndex(source)
-        guard let decoded = CGImageSourceCreateImageAtIndex(source, index, nil) else {
-            throw ReaderError.undecodableImage
-        }
         let properties = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [String: Any]
         let rawOrientation = (properties?[kCGImagePropertyOrientation as String] as? NSNumber)?.uint32Value ?? 1
-        let orientation = CGImagePropertyOrientation(rawValue: rawOrientation) ?? .up
+        let decodedImage: CGImage?
+        let orientation: CGImagePropertyOrientation
+        if options.upright {
+            let width = (properties?[kCGImagePropertyPixelWidth as String] as? NSNumber)?.intValue ?? 0
+            let height = (properties?[kCGImagePropertyPixelHeight as String] as? NSNumber)?.intValue ?? 0
+            let thumbnail: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: max(width, height),
+            ]
+            decodedImage = CGImageSourceCreateThumbnailAtIndex(source, index, thumbnail as CFDictionary)
+            orientation = .up
+        } else {
+            decodedImage = CGImageSourceCreateImageAtIndex(source, index, nil)
+            orientation = CGImagePropertyOrientation(rawValue: rawOrientation) ?? .up
+        }
+        guard let decoded = decodedImage else {
+            throw ReaderError.undecodableImage
+        }
         let fullWidth = CGFloat(decoded.width), fullHeight = CGFloat(decoded.height)
 
         // Cropping works in the stored pixel grid, so it's only applied to upright photos

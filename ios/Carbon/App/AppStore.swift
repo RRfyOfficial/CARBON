@@ -60,6 +60,11 @@ final class AppStore {
         self.onboardingDone = UserDefaults.standard.bool(forKey: Keys.onboardingDone)
         pipeline.keepCaptures = keepCaptures
 
+        // Keep the screen awake while a session is on and CARBON is on screen, so the phone doesn't
+        // auto-lock mid-scan and push CARBON into the background, where iOS blocks the clipboard (U5).
+        session.onPhaseChanged = { phase in
+            UIApplication.shared.isIdleTimerDisabled = phase != .stopped
+        }
         session.onDisplayReady = { [weak self] display in self?.router.attach(display) }
         session.onDisplayGone = { [weak self] in self?.router.detach() }
         session.onInput = { [weak self] event in self?.handle(event) }

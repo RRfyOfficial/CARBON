@@ -42,7 +42,9 @@ final class GlassesSession {
         case paused
     }
 
-    private(set) var phase: Phase = .stopped
+    private(set) var phase: Phase = .stopped {
+        didSet { if phase != oldValue { onPhaseChanged?(phase) } }
+    }
     private(set) var isRegistered = false
     private(set) var glasses = Badge.off
     private(set) var display = Badge.off
@@ -53,6 +55,7 @@ final class GlassesSession {
     /// A session has run at least once since launch, so the phone offers RESUME rather than START.
     private(set) var hasRun = false
 
+    @ObservationIgnored var onPhaseChanged: ((Phase) -> Void)?
     @ObservationIgnored var onDisplayReady: ((Display) -> Void)?
     @ObservationIgnored var onDisplayGone: (() -> Void)?
     @ObservationIgnored var onInput: ((InputEvent) -> Void)?
@@ -64,6 +67,7 @@ final class GlassesSession {
     @ObservationIgnored private var deviceTokens: [DeviceIdentifier: [AnyListenerToken]] = [:]
     @ObservationIgnored private var deviceID: DeviceIdentifier?
     @ObservationIgnored private var hingeClosed = false
+    @ObservationIgnored private var glassesAppUpdateRequired = false
     @ObservationIgnored private var session: DeviceSession?
     @ObservationIgnored private var sessionTasks: [Task<Void, Never>] = []
     @ObservationIgnored private var activeCamera: Camera?
@@ -183,6 +187,8 @@ final class GlassesSession {
         case .started:
             phase = .running
             hasRun = true
+            glassesAppUpdateRequired = false
+            refreshGlassesBadge()
             if activeCamera == nil { attachCamera() }
         case .paused:
             phase = .paused
@@ -202,7 +208,8 @@ final class GlassesSession {
     private func sessionFailed(_ description: String) {
         log.add("session error: \(description)")
         if description.contains("datAppOnTheGlassesUpdateRequired") {
-            glasses = Badge(level: .error, reason: "UPDATE THE GLASSES APP IN META AI")
+            glassesAppUpdateRequired = true
+            refreshGlassesBadge()
         }
     }
 
@@ -279,18 +286,26 @@ final class GlassesSession {
         }
     }
 
+    /// Recomputed from the device on every link or state change. Compatibility reads `undefined`
+    /// for a moment after connecting, which is "checking", not an error.
     private func refreshGlassesBadge() {
-        guard glasses.level != .error || glasses.reason.isEmpty else { return }
+        if glassesAppUpdateRequired {
+            glasses = Badge(level: .error, reason: "UPDATE THE GLASSES APP IN META AI")
+            return
+        }
         guard let id = deviceID, let device = Wearables.shared.deviceForIdentifier(id) else {
             glasses = Badge(level: .off, reason: "NO DISPLAY GLASSES FOUND")
             return
         }
+        let compatibility = device.compatibility()
         if device.linkState != .connected {
             glasses = Badge(level: .off, reason: "NOT CONNECTED")
-        } else if device.compatibility() != .compatible {
-            glasses = Badge(level: .error, reason: "\(device.compatibility())".uppercased())
-        } else {
+        } else if compatibility == .compatible {
             glasses = Badge(level: .ready, reason: hingeClosed ? "FOLDED" : "CONNECTED")
+        } else if compatibility == .undefined {
+            glasses = Badge(level: .off, reason: "CHECKING")
+        } else {
+            glasses = Badge(level: .error, reason: "\(compatibility)".uppercased())
         }
     }
 

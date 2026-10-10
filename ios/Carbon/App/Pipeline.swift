@@ -61,7 +61,10 @@ final class Pipeline {
             return .failure(.noText)
         }
         timings.readDone = now()
-        guard !read.isEmpty else { return .failure(.noText) }
+        guard !read.isEmpty else {
+            log.add("no text found · \(photo.count) B · read \(timings.readDone ?? -1) ms")
+            return .failure(.noText)
+        }
 
         let text = formatter.format(read, lineBreaks: lineBreaks)
         timings.formatted = now()

@@ -29,8 +29,16 @@ struct CarbonApp: App {
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                     store.appBecameActive(via: "app")
                 }
+                // Lock state in the log, to line up with background scans and copy-on-open.
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataWillBecomeUnavailableNotification)) { _ in
+                    store.log.add("phone locked")
+                }
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataDidBecomeAvailableNotification)) { _ in
+                    store.log.add("phone unlocked")
+                }
         }
         .onChange(of: scenePhase) { _, phase in
+            store.log.add("scene → \(phase)")
             if phase == .active { store.appBecameActive(via: "scene") }
         }
     }

@@ -15,6 +15,8 @@ struct DiagnosticsPanel: View {
             Rectangle().fill(Palette.line).frame(height: Metrics.hairline)
             FixtureCheckSection()
             Rectangle().fill(Palette.line).frame(height: Metrics.hairline)
+            LinkSpikeSection()
+            Rectangle().fill(Palette.line).frame(height: Metrics.hairline)
             eventLog
         }
     }
@@ -64,6 +66,25 @@ struct DiagnosticsPanel: View {
                     .font(Typeface.label(9))
                     .foregroundStyle(Palette.textMuted)
                     .lineLimit(2)
+            }
+        }
+    }
+}
+
+/// M2 spike (temporary): the phone advertises the CARBON service for `tools/spike/linkcheck`.
+private struct LinkSpikeSection: View {
+    @Environment(AppStore.self) private var store
+
+    var body: some View {
+        let spike = store.linkSpike
+        VStack(alignment: .leading, spacing: Metrics.grid) {
+            Toggle(isOn: Binding(get: { spike.isOn }, set: { spike.setOn($0) })) {
+                Text("LINK TEST (M2)").tacturaLabel(11, color: Palette.text)
+            }
+            .tint(Palette.accent)
+            if spike.isOn {
+                Text("\(spike.status) · \(spike.subscribers) LISTENING").tacturaLabel(10, color: Palette.text)
+                ChamferButton(title: "SEND TEST MESSAGE") { spike.sendTest() }
             }
         }
     }

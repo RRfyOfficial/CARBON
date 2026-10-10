@@ -53,7 +53,11 @@ public sealed class PhoneLink(Hello hello, Action<string> log) : IAsyncDisposabl
     private GattDeviceService? service;
     private GattCharacteristic? p2l;
     private GattCharacteristic? l2p;
+    private GattCharacteristic? info;
+    /// <summary>INFO's per-launch id at the last set-up: a different one means CARBON restarted.</summary>
+    private string? phoneBoot;
     private ushort nextMsgId;
+    private static readonly TimeSpan WatchInterval = TimeSpan.FromSeconds(30);
 
     public LinkState State { get; private set; } = LinkState.NoPhone;
     public string? PhoneName { get; private set; }
@@ -88,10 +92,12 @@ public sealed class PhoneLink(Hello hello, Action<string> log) : IAsyncDisposabl
             return;
         }
         device.ConnectionStatusChanged += OnConnectionStatusChanged;
+        device.GattServicesChanged += OnServicesChanged;
         session = await GattSession.FromDeviceIdAsync(device.BluetoothDeviceId);
         session.MaintainConnection = true;
         log($"holding the link to '{device.Name}' (now {device.ConnectionStatus})");
         SetState(LinkState.Waiting);
+        _ = Task.Run(() => WatchAsync(running.Token));
         if (device.ConnectionStatus == BluetoothConnectionStatus.Connected) await SetUpAsync();
     }
 
@@ -102,10 +108,14 @@ public sealed class PhoneLink(Hello hello, Action<string> log) : IAsyncDisposabl
         inbound?.Writer.TryComplete();
         inbound = null;
         if (p2l is not null) p2l.ValueChanged -= OnValueChanged;
-        p2l = l2p = null;
+        p2l = l2p = info = null;
         service?.Dispose();
         service = null;
-        if (device is not null) device.ConnectionStatusChanged -= OnConnectionStatusChanged;
+        if (device is not null)
+        {
+            device.ConnectionStatusChanged -= OnConnectionStatusChanged;
+            device.GattServicesChanged -= OnServicesChanged;
+        }
         session?.Dispose();
         device?.Dispose();
         session = null;
@@ -114,10 +124,12 @@ public sealed class PhoneLink(Hello hello, Action<string> log) : IAsyncDisposabl
     }
 
     /// <summary>
-    /// PROTOCOL.md Section 3: find a phone with CARBON open, read INFO, then pair with numeric
-    /// comparison. <paramref name="confirmCode"/> shows the 6-digit code and returns true on CONFIRM.
+    /// PROTOCOL.md Section 3: find a phone with CARBON open, read INFO, then pair (LE Secure
+    /// Connections). The laptop accepts on its side; the wearer's Pair tap on the phone is the
+    /// confirmation. iOS 27 shows no code to compare, so the companion doesn't show one either.
+    /// Progress steps: SEARCHING, CONNECTING, TAP PAIR.
     /// </summary>
-    public async Task<PairResult> PairAsync(Func<string, Task<bool>> confirmCode, Action<string> progress, CancellationToken cancel)
+    public async Task<PairResult> PairAsync(Action<string> progress, CancellationToken cancel)
     {
         await StopAsync();
         progress("SEARCHING");
@@ -141,20 +153,12 @@ public sealed class PhoneLink(Hello hello, Action<string> log) : IAsyncDisposabl
         if (info.Value.Proto != Protocol.Version) return new(null, null, "VERSION MISMATCH · UPDATE CARBON OR THE COMPANION");
 
         var custom = phone.DeviceInformation.Pairing.Custom;
-        custom.PairingRequested += async (_, request) =>
+        custom.PairingRequested += (_, request) =>
         {
-            var deferral = request.GetDeferral();
-            try
-            {
-                log($"pairing request ({request.PairingKind})");
-                if (await confirmCode(request.Pin ?? "")) request.Accept();
-            }
-            finally
-            {
-                deferral.Complete();
-            }
+            log($"pairing request ({request.PairingKind})");
+            request.Accept();
+            progress("TAP PAIR");
         };
-        progress("CODE");
         var classicBefore = await PairedClassicIdsAsync();
         var result = await custom.PairAsync(DevicePairingKinds.ConfirmPinMatch | DevicePairingKinds.DisplayPin,
                                             DevicePairingProtectionLevel.EncryptionAndAuthentication);
@@ -169,8 +173,7 @@ public sealed class PhoneLink(Hello hello, Action<string> log) : IAsyncDisposabl
         return result.Status switch
         {
             DevicePairingResultStatus.Paired or DevicePairingResultStatus.AlreadyPaired => new(phone.DeviceId, info.Value.Name, null, twin),
-            DevicePairingResultStatus.RejectedByHandler => new(null, null, "REJECTED"),
-            _ => new(null, null, $"PAIRING FAILED ({result.Status}) · ON THE PHONE, FORGET {Environment.MachineName.ToUpperInvariant()} IN BLUETOOTH SETTINGS IF IT'S LISTED, THEN TRY AGAIN"),
+            _ => new(null, null, $"PAIRING FAILED ({result.Status}) · IF YOU TAPPED PAIR, FORGET {Environment.MachineName.ToUpperInvariant()} IN THE PHONE'S BLUETOOTH SETTINGS, THEN TRY AGAIN"),
         };
     }
 
@@ -206,6 +209,53 @@ public sealed class PhoneLink(Hello hello, Action<string> log) : IAsyncDisposabl
 
     // MARK: - Connection
 
+    /// <summary>CARBON restarted (or its service changed) without the Bluetooth link dropping.</summary>
+    private void OnServicesChanged(BluetoothLEDevice sender, object args)
+    {
+        log("the phone's services changed; setting up again");
+        _ = SetUpAsync();
+    }
+
+    /// <summary>
+    /// Every 30 s while connected: not linked → try the set-up again; linked → read INFO, and a
+    /// failed read or a new per-launch id means CARBON restarted (PROTOCOL.md Section 3).
+    /// </summary>
+    private async Task WatchAsync(CancellationToken cancel)
+    {
+        using var timer = new PeriodicTimer(WatchInterval);
+        try
+        {
+            while (await timer.WaitForNextTickAsync(cancel))
+            {
+                if (device?.ConnectionStatus != BluetoothConnectionStatus.Connected) continue;
+                if (State == LinkState.Linked)
+                {
+                    if (await SameCarbonAsync()) continue;
+                    log("CARBON restarted on the phone; setting up again");
+                    SetState(LinkState.Waiting);
+                }
+                await SetUpAsync();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private async Task<bool> SameCarbonAsync()
+    {
+        if (info is not { } characteristic) return false;
+        try
+        {
+            var read = await characteristic.ReadValueAsync(BluetoothCacheMode.Uncached);
+            return read.Status == GattCommunicationStatus.Success && ParseInfo(Bytes(read.Value))?.Boot == phoneBoot;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
     private void OnConnectionStatusChanged(BluetoothLEDevice sender, object args)
     {
         log($"connection: {sender.ConnectionStatus}");
@@ -240,7 +290,7 @@ public sealed class PhoneLink(Hello hello, Action<string> log) : IAsyncDisposabl
         {
             if (device is not { } phone) return true;
             if (p2l is not null) p2l.ValueChanged -= OnValueChanged;
-            p2l = l2p = null;
+            p2l = l2p = info = null;
             service?.Dispose();
             service = null;
 
@@ -252,12 +302,15 @@ public sealed class PhoneLink(Hello hello, Action<string> log) : IAsyncDisposabl
                 SetState(LinkState.VersionMismatch);
                 return true;
             }
-            if (await ReadInfoAsync(characteristics) is { } info && info.Proto != Protocol.Version)
+            var phoneInfo = await ReadInfoAsync(characteristics);
+            if (phoneInfo is { } mismatch && mismatch.Proto != Protocol.Version)
             {
-                log($"phone speaks protocol {info.Proto}, this companion {Protocol.Version}");
+                log($"phone speaks protocol {mismatch.Proto}, this companion {Protocol.Version}");
                 SetState(LinkState.VersionMismatch);
                 return true;
             }
+            info = characteristics.GetValueOrDefault(Protocol.Info);
+            phoneBoot = phoneInfo?.Boot;
 
             lock (reassembler) reassembler.Reset();
             // Windows only encrypts the link when a request asks for it (CLAUDE.md, section 8).
@@ -433,32 +486,40 @@ public sealed class PhoneLink(Hello hello, Action<string> log) : IAsyncDisposabl
     }
 
     /// <summary>INFO for pairing; the service is closed again right after.</summary>
-    private async Task<(int Proto, string Name)?> ReadInfoAsync(BluetoothLEDevice phone)
+    private async Task<(int Proto, string Name, string? Boot)?> ReadInfoAsync(BluetoothLEDevice phone)
     {
         if (await CharacteristicsAsync(phone) is not var (service, characteristics)) return null;
         using (service) return await ReadInfoAsync(characteristics);
     }
 
-    private async Task<(int Proto, string Name)?> ReadInfoAsync(Dictionary<Guid, GattCharacteristic> characteristics)
+    private async Task<(int Proto, string Name, string? Boot)?> ReadInfoAsync(Dictionary<Guid, GattCharacteristic> characteristics)
     {
-        if (!characteristics.TryGetValue(Protocol.Info, out var info)) return null;
-        var read = await info.ReadValueAsync(BluetoothCacheMode.Uncached);
+        if (!characteristics.TryGetValue(Protocol.Info, out var characteristic)) return null;
+        var read = await characteristic.ReadValueAsync(BluetoothCacheMode.Uncached);
         if (read.Status != GattCommunicationStatus.Success)
         {
             log($"INFO read: {read.Status}");
             return null;
         }
+        var parsed = ParseInfo(Bytes(read.Value));
+        if (parsed is null) log("INFO isn't JSON");
+        return parsed;
+    }
+
+    /// <summary>INFO's JSON; `boot` is absent on phones from before it was added.</summary>
+    private static (int Proto, string Name, string? Boot)? ParseInfo(byte[] json)
+    {
         try
         {
-            using var json = JsonDocument.Parse(Bytes(read.Value));
-            var root = json.RootElement;
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
             var proto = root.TryGetProperty("proto", out var p) && p.TryGetInt32(out var n) ? n : 0;
             var name = root.TryGetProperty("name", out var nm) ? nm.GetString() ?? "IPHONE" : "IPHONE";
-            return (proto, name);
+            var boot = root.TryGetProperty("boot", out var b) ? b.GetString() : null;
+            return (proto, name, boot);
         }
         catch (JsonException)
         {
-            log("INFO isn't JSON");
             return null;
         }
     }

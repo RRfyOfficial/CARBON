@@ -21,8 +21,8 @@ No internet in the scan path, no paid services, no cloud OCR.
 | M0: spike tests | ✅ Done 2026-10-10 ([docs/M0-REPORT.md](docs/M0-REPORT.md)) |
 | M1: scan → phone clipboard | ✅ Done 2026-10-10. Body-text slides read with 0% errors; 95% of scans finish within 7.5 s |
 | M2: laptop target | ✅ Done 2026-10-10. Clipboard and autopaste on Windows; autopaste 11/11 in the right window; 95% of scans within 6.7 s; nothing lost when the laptop is out of reach |
-| M3: settings, history, detail scan, polish | 🛠 In progress |
-| M4: Clean mode (headings, lists, tables) | Planned |
+| M3: settings, history, detail scan, polish | ✅ Done 2026-10-10. Settings and history on the glasses, RESEND, and a detail scan that reads fine print (the dense slide went from 24% errors to 0%) |
+| M4: Clean mode (headings, lists, tables) | Next |
 | M5: public release (build it yourself) | Planned |
 
 Details and acceptance criteria: [SPEC.md](SPEC.md), Section 12. Every decision along the way: Section 14.
@@ -40,21 +40,23 @@ A step-by-step "build it yourself" guide comes with M5. Until then, this repo is
 ## Using it
 
 1. Open CARBON on the iPhone. On first run, connect to Meta AI and allow the glasses camera.
-2. Tap **START**. The glasses show MAIN with a **SCAN** button.
+2. Tap **START**. The glasses show MAIN with **SCAN**, **HISTORY** and **SETTINGS**.
 3. Look at the text and **pinch SCAN**, or short-press the **camera button** on the glasses.
-4. About 5–6 seconds later the glasses show **COPIED**. Paste anywhere on the phone.
+4. About 5–6 seconds later the glasses show **COPIED**. Paste anywhere on the phone (or see the laptop target below).
+5. **HISTORY** browses your last 20 scans (OLDER / NEWER) and **RESEND**s one to the current target. **SETTINGS** switches TARGET, PASTE, LINE BREAKS and SOUND, the same settings as the phone app's 04 / Settings.
 
 | On the glasses | Does |
 |---|---|
 | Wristband swipe | Moves the highlight between buttons |
 | Pinch | Presses the highlighted button |
 | Camera button, short press | Scans |
+| Camera button, hold | **Detail scan**: slower (about 11 s), for tables and fine print |
 | Two-finger tap on the temple | Meta's system back: ends the display session. The phone then offers RESUME |
 
 **Good to know**
 - **Phone target: keep CARBON open on the phone while scanning.** iOS doesn't let apps write the clipboard from the background. If CARBON wasn't on screen, the glasses say **SAVED · OPEN CARBON TO COPY**, and the text is copied the moment you open CARBON. While a session runs, CARBON keeps the screen from auto-locking.
 - **Folding the glasses ends the session.** Unfolding them brings CARBON back by itself in about 2 seconds.
-- **Tables and fine print are hard for the fast scan.** A slower detail scan (a camera-button hold) comes in M3.
+- **Tables and fine print:** hold the camera button for a **detail scan**. It takes about 11 s instead of 5-6, and reads small text the fast scan misses. Table rows occasionally come out in the wrong order; Clean mode (M4) fixes that.
 - Bullet dots aren't copied. Apple's text reader doesn't return them, so each bullet item comes out as a plain line.
 
 ### The laptop target (Windows)

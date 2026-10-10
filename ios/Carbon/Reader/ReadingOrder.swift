@@ -24,6 +24,19 @@ nonisolated enum ReadingOrder {
         return ReadText(blocks: blocks, skewDegrees: Double(theta) * 180 / .pi)
     }
 
+    /// Edges the text runs into. The 16:9 LARGE photo crops the top and bottom of the camera's view
+    /// (M0), so a slide that sits high or low loses lines without the wearer noticing (M1 fixture run).
+    /// A recognized line within 1.5 line-heights of the top or bottom edge suggests one beyond it was cut.
+    static func cutEdges(of lines: [RecognizedLine], imageHeight: CGFloat) -> Set<CutEdge> {
+        guard !lines.isEmpty, imageHeight > 0 else { return [] }
+        let boxes = lines.map { boundingBox(of: $0.corners, rotatedBy: 0) }
+        let margin = max(0.015 * imageHeight, 1.5 * median(boxes.map { $0.height }))
+        var edges: Set<CutEdge> = []
+        if let top = boxes.map({ $0.minY }).min(), top < margin { edges.insert(.top) }
+        if let bottom = boxes.map({ $0.maxY }).max(), bottom > imageHeight - margin { edges.insert(.bottom) }
+        return edges
+    }
+
     /// Page tilt in radians (pixel space, y down): the weighted median of
     /// - slopes of lines at least half as long as the longest, skipping exactly level quads
     ///   (Vision returns those on some tilted photos, M0), weighted by length, and

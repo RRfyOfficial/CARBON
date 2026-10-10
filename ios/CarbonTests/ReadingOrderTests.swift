@@ -69,6 +69,21 @@ struct ReadingOrderTests {
         #expect(rows == (0..<4).map { r in (0..<4).map { "r\(r)c\($0)" }.joined(separator: " ") })
     }
 
+    @Test func textWellInsideTheFrameIsNotCut() {
+        let lines = [line("title", x: 100, y: 300, w: 400, h: 30), line("body", x: 100, y: 400, w: 400, h: 30)]
+        #expect(ReadingOrder.cutEdges(of: lines, imageHeight: 1080).isEmpty)
+    }
+
+    /// M1 fixture run: the 16:9 crop cut the slide's title and first line; the next line sat near the top.
+    @Test func textRunningIntoTheTopOrBottomEdgeIsFlagged() {
+        let nearTop = [line("second line", x: 100, y: 20, w: 900, h: 30), line("middle", x: 100, y: 500, w: 900, h: 30)]
+        #expect(ReadingOrder.cutEdges(of: nearTop, imageHeight: 1080) == [.top])
+        let nearBottom = [line("middle", x: 100, y: 500, w: 900, h: 30), line("last", x: 100, y: 1030, w: 900, h: 30)]
+        #expect(ReadingOrder.cutEdges(of: nearBottom, imageHeight: 1080) == [.bottom])
+        #expect(CutEdge.advice(for: [.top, .bottom]) == "TEXT CUT OFF · STEP BACK")
+        #expect(CutEdge.advice(for: nil) == nil)
+    }
+
     @Test func fewerThanTwoCharactersIsEmpty() {
         #expect(ReadText(blocks: [["x"]]).isEmpty)
         #expect(!ReadText(blocks: [["ok"]]).isEmpty)

@@ -43,6 +43,9 @@ enum GlassesScreens {
             Text("COPIED", style: .heading, color: .primary)
             Text("\(model.chars) CHARS · \(model.targetName) · \(model.how)", style: .meta, color: .secondary)
             Text(elapsed(model.elapsed), style: .meta, color: .secondary)
+            if let warning = model.warning {
+                Text(warning, style: .meta, color: .primary)
+            }
         }
         .padding(24)
     }

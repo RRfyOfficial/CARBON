@@ -56,6 +56,20 @@ nonisolated enum GlassesScreen: Equatable, Sendable {
         var targetName = "PHONE"
         var how = "ON PHONE CLIPBOARD"
         var elapsed: Double
+        /// Shown when text ran into the photo's edge, e.g. "CUT AT THE TOP · AIM HIGHER".
+        var warning: String?
+    }
+}
+
+nonisolated extension CutEdge {
+    /// What the wearer should do about text cut off at these edges.
+    static func advice(for edges: Set<CutEdge>?) -> String? {
+        switch (edges?.contains(.top) ?? false, edges?.contains(.bottom) ?? false) {
+        case (true, true): "TEXT CUT OFF · STEP BACK"
+        case (true, false): "CUT AT THE TOP · AIM HIGHER"
+        case (false, true): "CUT AT THE BOTTOM · AIM LOWER"
+        case (false, false): nil
+        }
     }
 }
 

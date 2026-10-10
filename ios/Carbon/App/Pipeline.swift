@@ -75,9 +75,11 @@ final class Pipeline {
 
         log.add("scan \(kind.rawValue) · \(photo.count) B · \(text.count) chars · skew \(String(format: "%.1f", read.skewDegrees))° · " +
                 "first byte \(timings.firstByte ?? -1) · photo \(timings.photoReceived ?? -1) · read \(timings.readDone ?? -1) · " +
-                "delivered \(timings.delivered ?? -1) ms · \(delivery)")
+                "delivered \(timings.delivered ?? -1) ms · \(delivery)" +
+                (read.cutEdges.isEmpty ? "" : " · cut at \(read.cutEdges.map(\.rawValue).sorted().joined(separator: "+"))"))
         return .success(Scan(id: UUID(), createdAt: .now, text: text, target: target.id, pasteMode: .clipboard,
-                             kind: kind, timings: timings, delivery: delivery, photoBytes: photo.count))
+                             kind: kind, timings: timings, delivery: delivery, photoBytes: photo.count,
+                             cutEdges: read.cutEdges.isEmpty ? nil : read.cutEdges))
     }
 
     /// Debug "Keep captures" (SPEC 3 rule 7): off by default; photos are otherwise never stored.

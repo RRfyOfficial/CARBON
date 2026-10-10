@@ -1,0 +1,140 @@
+<!-- Tactura design tokens (SPEC 7.2). The CSS block in the SPEC is the source of truth; keep these
+     values identical to it and to ios/Carbon/Design/Tokens.swift. Dark only. -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:local="clr-namespace:Carbon.Companion">
+
+    <Color x:Key="BgColor">#0A0A0B</Color>
+    <SolidColorBrush x:Key="Bg" Color="#0A0A0B" />
+    <SolidColorBrush x:Key="Surface" Color="#B8111113" />
+    <SolidColorBrush x:Key="SurfaceSolid" Color="#111113" />
+    <SolidColorBrush x:Key="Surface2" Color="#18181B" />
+    <SolidColorBrush x:Key="Line" Color="#2A2A2F" />
+    <SolidColorBrush x:Key="LineStrong" Color="#3D3D44" />
+    <SolidColorBrush x:Key="Text" Color="#F4F4F1" />
+    <SolidColorBrush x:Key="TextMuted" Color="#8C8C93" />
+    <SolidColorBrush x:Key="TextDim" Color="#55555C" />
+    <!-- Signal red: only for fresh events and errors. -->
+    <SolidColorBrush x:Key="Accent" Color="#FF3B2F" />
+    <SolidColorBrush x:Key="AccentSoft" Color="#24FF3B2F" />
+
+    <FontFamily x:Key="FontDisplay">pack://application:,,,/Fonts/#Doto</FontFamily>
+    <FontFamily x:Key="FontLabel">pack://application:,,,/Fonts/#Space Mono</FontFamily>
+    <FontFamily x:Key="FontBody">pack://application:,,,/Fonts/#Space Grotesk</FontFamily>
+
+    <!-- Near-black with a faint dot grid. -->
+    <DrawingBrush x:Key="DotGrid" TileMode="Tile" Viewport="0,0,8,8" ViewportUnits="Absolute" Stretch="None">
+        <DrawingBrush.Drawing>
+            <GeometryDrawing Brush="#0FF4F4F1">
+                <GeometryDrawing.Geometry>
+                    <EllipseGeometry Center="1,1" RadiusX="0.6" RadiusY="0.6" />
+                </GeometryDrawing.Geometry>
+            </GeometryDrawing>
+        </DrawingBrush.Drawing>
+    </DrawingBrush>
+
+    <Style x:Key="Label" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontLabel}" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Foreground" Value="{StaticResource TextMuted}" />
+    </Style>
+
+    <Style x:Key="Body" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontBody}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Foreground" Value="{StaticResource Text}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <Style x:Key="Readout" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontDisplay}" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="Foreground" Value="{StaticResource Text}" />
+    </Style>
+
+    <Style x:Key="Hairline" TargetType="Rectangle">
+        <Setter Property="Height" Value="1" />
+        <Setter Property="Fill" Value="{StaticResource Line}" />
+        <Setter Property="Margin" Value="0,14" />
+    </Style>
+
+    <!-- Chamfered outline button. Tag="accent" draws the outline in signal red. -->
+    <Style x:Key="ChamferButton" TargetType="Button">
+        <Setter Property="Foreground" Value="{StaticResource Text}" />
+        <Setter Property="FontFamily" Value="{StaticResource FontLabel}" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <local:ChamferBox x:Name="Box" Fill="{StaticResource Surface2}" Stroke="{StaticResource LineStrong}" Chamfer="8" Padding="14,8,18,8">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </local:ChamferBox>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Tag" Value="accent">
+                            <Setter TargetName="Box" Property="Stroke" Value="{StaticResource Accent}" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Box" Property="Stroke" Value="{StaticResource Text}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Box" Property="Fill" Value="{StaticResource AccentSoft}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Plain text button (QUIT, FORGET PHONE). -->
+    <Style x:Key="TextButton" TargetType="Button">
+        <Setter Property="Foreground" Value="{StaticResource TextMuted}" />
+        <Setter Property="FontFamily" Value="{StaticResource FontLabel}" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <ContentPresenter Margin="0,4" />
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Foreground" Value="{StaticResource Text}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- [■] LABEL toggle row. -->
+    <Style x:Key="Toggle" TargetType="CheckBox">
+        <Setter Property="Foreground" Value="{StaticResource Text}" />
+        <Setter Property="FontFamily" Value="{StaticResource FontLabel}" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Margin" Value="0,4" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <StackPanel Orientation="Horizontal" Background="Transparent">
+                        <Border Width="12" Height="12" BorderThickness="1" BorderBrush="{StaticResource LineStrong}" VerticalAlignment="Center">
+                            <Rectangle x:Name="Mark" Margin="2" Fill="{StaticResource Text}" Visibility="Collapsed" />
+                        </Border>
+                        <ContentPresenter Margin="10,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Mark" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>

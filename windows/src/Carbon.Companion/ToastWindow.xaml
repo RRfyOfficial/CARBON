@@ -1,0 +1,14 @@
+<Window x:Class="Carbon.Companion.ToastWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:Carbon.Companion"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        ResizeMode="NoResize" ShowInTaskbar="False" Topmost="True" ShowActivated="False" Focusable="False"
+        SizeToContent="WidthAndHeight">
+    <local:ChamferBox Fill="{StaticResource SurfaceSolid}" Stroke="{StaticResource LineStrong}" Chamfer="10" Padding="16,12,24,12">
+        <StackPanel Orientation="Horizontal">
+            <Ellipse x:Name="Dot" Width="6" Height="6" Fill="{StaticResource Accent}" VerticalAlignment="Center" Margin="0,0,10,0" />
+            <TextBlock x:Name="Message" Style="{StaticResource Label}" Foreground="{StaticResource Text}" FontSize="12" />
+        </StackPanel>
+    </local:ChamferBox>
+</Window>

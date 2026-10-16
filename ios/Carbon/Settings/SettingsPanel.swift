@@ -6,6 +6,7 @@ import SwiftUI
 struct SettingsPanel: View {
     @Environment(AppStore.self) private var store
     @State private var forgotten: String?
+    @State private var showChecklist = false
 
     var body: some View {
         @Bindable var store = store
@@ -31,7 +32,9 @@ struct SettingsPanel: View {
             }
             .tint(Palette.accent)
             Text("THE SAME SETTINGS ARE ON THE GLASSES: MAIN › SETTINGS").tacturaLabel(9, color: Palette.textDim)
+            ChamferButton(title: "SETUP CHECKLIST") { showChecklist = true }
         }
+        .sheet(isPresented: $showChecklist) { OnboardingView() }
     }
 
     /// The paired computer, or how to pair one (PROTOCOL.md Section 3).

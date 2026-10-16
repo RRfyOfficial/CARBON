@@ -46,6 +46,12 @@ final class GlassesSession {
         didSet { if phase != oldValue { onPhaseChanged?(phase) } }
     }
     private(set) var isRegistered = false
+    /// The setup checklist's fix-it line when registration failed; nil when fine (SPEC M5).
+    private(set) var registrationProblem: String?
+    /// Glasses camera permission as last checked; nil until it could be checked.
+    private(set) var cameraAllowed: Bool?
+    /// Why the camera permission couldn't be checked or wasn't granted.
+    private(set) var cameraProblem: String?
     private(set) var glasses = Badge.off
     private(set) var display = Badge.off
     private(set) var camera = Badge.off
@@ -97,6 +103,7 @@ final class GlassesSession {
         Task {
             for await state in Wearables.shared.registrationStateStream() {
                 isRegistered = state == .registered
+                if isRegistered { registrationProblem = nil }
                 log.add("registration → \(state)")
             }
         }
@@ -109,12 +116,47 @@ final class GlassesSession {
 
     func register() {
         log.add("registration: opening Meta AI")
+        registrationProblem = nil
         Task {
             do {
                 try await Wearables.shared.startRegistration()
             } catch {
                 log.add("registration error: \(error)")
+                registrationProblem = Self.advice(for: error)
             }
+        }
+    }
+
+    /// The setup checklist's fix-it line for a failed registration (SPEC M5). nil when it's fine.
+    private static func advice(for error: any Error) -> String? {
+        switch error as? RegistrationError {
+        case .alreadyRegistered: nil
+        case .metaAINotInstalled: "INSTALL META AI FROM THE APP STORE, SIGN IN, AND PAIR YOUR GLASSES THERE"
+        // CARBON registers through Developer Mode instead of a Developer Center app (SPEC 11.5).
+        case .configurationInvalid: "TURN ON DEVELOPER MODE IN META AI: SETTINGS › APP INFO › TAP THE VERSION NUMBER 5 TIMES"
+        case .networkUnavailable: "CONNECT THE PHONE TO THE INTERNET AND TRY AGAIN"
+        default: "META AI DIDN'T FINISH REGISTERING. OPEN META AI ONCE, THEN TRY AGAIN"
+        }
+    }
+
+    /// Re-reads the glasses camera permission for the setup checklist, without asking.
+    func refreshCameraPermission() async {
+        do {
+            cameraAllowed = try await Wearables.shared.checkPermissionStatus(.camera) == .granted
+            cameraProblem = nil
+        } catch {
+            cameraAllowed = nil
+            cameraProblem = Self.permissionAdvice(for: error)
+        }
+    }
+
+    private static func permissionAdvice(for error: any Error) -> String {
+        switch error as? PermissionError {
+        case .noDevice, .noDeviceWithConnection: "PUT THE GLASSES ON, UNFOLDED, THEN TRY AGAIN"
+        case .connectionError: "THE GLASSES DROPPED THE CONNECTION. TRY AGAIN"
+        case .metaAINotInstalled: "INSTALL META AI FROM THE APP STORE"
+        case .requestInProgress: "FINISH THE REQUEST IN META AI"
+        default: "COULDN'T CHECK. OPEN META AI, THEN TRY AGAIN"
         }
     }
 
@@ -131,10 +173,17 @@ final class GlassesSession {
     /// Camera permission on the glasses, granted in Meta AI. Returns whether it's granted.
     func ensureCameraPermission() async -> Bool {
         do {
-            if try await Wearables.shared.checkPermissionStatus(.camera) == .granted { return true }
-            return try await Wearables.shared.requestPermission(.camera) == .granted
+            if try await Wearables.shared.checkPermissionStatus(.camera) != .granted {
+                _ = try await Wearables.shared.requestPermission(.camera)
+            }
+            let granted = try await Wearables.shared.checkPermissionStatus(.camera) == .granted
+            cameraAllowed = granted
+            cameraProblem = granted ? nil : "NOT ALLOWED YET. ALLOW CARBON'S CAMERA ACCESS WHEN META AI ASKS"
+            return granted
         } catch {
             log.add("camera permission error: \(error)")
+            cameraAllowed = nil
+            cameraProblem = Self.permissionAdvice(for: error)
             return false
         }
     }

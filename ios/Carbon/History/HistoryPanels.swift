@@ -58,14 +58,14 @@ struct HistoryPanel: View {
                                 store.resend(scan)
                             }
                             Button("Copy", systemImage: "doc.on.doc") { store.copy(scan) }
-                            Button("Delete", systemImage: "trash", role: .destructive) { store.history.remove(scan.id) }
+                            Button("Delete", systemImage: "trash", role: .destructive) { store.deleteScan(scan.id) }
                         }
                     Rectangle().fill(Palette.line).frame(height: Metrics.hairline)
                 }
                 Text("TAP A SCAN TO COPY IT · HOLD FOR RESEND AND DELETE").tacturaLabel(9, color: Palette.textDim)
                 ChamferButton(title: "CLEAR ALL") { confirmClear = true }
                     .confirmationDialog("Clear all scans?", isPresented: $confirmClear) {
-                        Button("Clear all", role: .destructive) { store.history.clear() }
+                        Button("Clear all", role: .destructive) { store.clearHistory() }
                     }
             }
         }

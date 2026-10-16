@@ -206,13 +206,28 @@ final class AppStore {
         }
     }
 
-    /// Re-sends MAIN or SETTINGS when what they show changed, so the glasses and the phone stay in sync.
+    /// Re-sends MAIN, HISTORY or SETTINGS when what they show changed, so the glasses and the phone
+    /// stay in sync.
     private func refreshGlasses() {
         switch router.screen {
         case .main: router.show(.main(mainModel()))
+        case .history: showHistory()  // clamps to what's left, or MAIN when nothing is
         case .settings: router.show(.settings(settingsModel()))
         default: break
         }
+    }
+
+    /// The phone's CLEAR ALL: the glasses drop the old preview / history entry right away.
+    func clearHistory() {
+        history.clear()
+        historyIndex = 0
+        refreshGlasses()
+    }
+
+    /// The phone's DELETE on one scan.
+    func deleteScan(_ id: Scan.ID) {
+        history.remove(id)
+        refreshGlasses()
     }
 
     // MARK: - Triggers

@@ -24,6 +24,15 @@ pinch SCAN (or press the camera button)
 - A Mac with Xcode 26 to build. A free Apple ID works, but builds expire after 7 days.
 - For the laptop target: a **Windows 10/11** PC with Bluetooth LE. The companion comes prebuilt from [Releases](https://github.com/RRfyOfficial/CARBON/releases), or you build it with the .NET 8 SDK.
 
+## Limitations
+
+- **English text only.** The text reader is set to English; other languages read poorly.
+- **iPhone and Windows only.** There's no Android app, and the laptop companion runs on Windows only.
+- **Very small text** can lose whole lines. Move closer, or hold the camera button for a detail scan.
+- **Tables:** rows sometimes come out in the wrong order.
+- **One Developer Mode app at a time** in Meta AI: registering CARBON unregisters any other.
+- **Free Apple ID builds stop opening after 7 days.** Press Run in Xcode again to renew.
+
 ## Build it yourself
 
 About 30 minutes from a fresh clone. CARBON isn't on the App Store: you build it onto your own iPhone with your own Apple ID.
@@ -39,7 +48,7 @@ About 30 minutes from a fresh clone. CARBON isn't on the App Store: you build it
    ```
    It checks Xcode, finds your Team ID, suggests a bundle ID, writes `ios/Config/Local.xcconfig` (gitignored: your identity never goes into the repo), and opens the project. If you have several teams, it asks which one.
 3. In Xcode, wait until the **Meta Wearables** package has finished downloading (progress at the top of the window).
-4. Plug in your iPhone, pick it next to the **Carbon** scheme at the top, and press **Run** (⌘R).
+4. Connect your iPhone with a **USB cable** (needed the first time; later installs can be wireless), pick it next to the **Carbon** scheme at the top, and press **Run** (⌘R).
 5. First time only, on the iPhone: turn on **Settings › Privacy & Security › Developer Mode** (the phone restarts), then trust your Apple ID in **Settings › General › VPN & Device Management**. Press Run again.
 
 With a free Apple ID the app stops opening after **7 days**. Plug the phone in and press Run again; nothing is lost.
@@ -81,6 +90,7 @@ Then pair it with the phone: see **The laptop target** below.
 |---|---|
 | Wristband swipe | Moves the highlight between buttons |
 | Pinch | Presses the highlighted button |
+| Touchpad tap, on MAIN | Scans |
 | Camera button, short press | Scans |
 | Camera button, hold | **Detail scan**: slower (about 11 s), for tables and fine print |
 | Two-finger tap on the temple | Meta's system back: ends the display session. The phone then offers RESUME |

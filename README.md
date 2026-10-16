@@ -23,7 +23,7 @@ No internet in the scan path, no paid services, no cloud OCR.
 | M2: laptop target | ✅ Done 2026-10-10. Clipboard and autopaste on Windows; autopaste 11/11 in the right window; 95% of scans within 6.7 s; nothing lost when the laptop is out of reach |
 | M3: settings, history, detail scan, polish | ✅ Done 2026-10-10. Settings and history on the glasses, RESEND, and a detail scan that reads fine print (the dense slide went from 24% errors to 0%) |
 | M4: Clean mode (headings, lists, tables) | Later (deferred; the plan is in the SPEC) |
-| M5: public release (build it yourself) | Next |
+| M5: public release (build it yourself) | 🛠 In progress |
 
 Details and acceptance criteria: [SPEC.md](SPEC.md), Section 12. Every decision along the way: Section 14.
 
@@ -33,13 +33,58 @@ Details and acceptance criteria: [SPEC.md](SPEC.md), Section 12. Every decision 
 - **Meta Ray-Ban Display** glasses with the Neural Band, Meta AI app v272+, glasses firmware v125+.
 - **Developer Mode** on in the Meta AI app: Settings › App Info › tap the version number 5 times. CARBON doesn't use a Wearables Developer Center project (SPEC 11.5).
 - A Mac with Xcode 26 to build. A free Apple ID works, but builds expire after 7 days.
-- For the laptop target: a **Windows 10/11** PC with Bluetooth LE, and the .NET 8 SDK to build the companion.
+- For the laptop target: a **Windows 10/11** PC with Bluetooth LE. The companion comes prebuilt from [Releases](https://github.com/RRfyOfficial/CARBON/releases), or you build it with the .NET 8 SDK.
 
-A step-by-step "build it yourself" guide comes with M5. Until then, this repo is built with the remote workflow in [CLAUDE.md](CLAUDE.md): code is written on Windows and compiled on a lab iMac over SSH.
+## Build it yourself
+
+About 30 minutes from a fresh clone. CARBON isn't on the App Store: you build it onto your own iPhone with your own Apple ID.
+
+### 1. The iPhone app (on a Mac)
+
+1. Install **Xcode 26 or newer** from the App Store and open it once. In **Xcode › Settings › Accounts**, add your Apple ID (a free one works). Select its team, click **Manage Certificates**, and add an **Apple Development** certificate if there isn't one.
+2. Get the code and run the setup script:
+   ```bash
+   git clone https://github.com/RRfyOfficial/CARBON.git
+   cd CARBON
+   bash ios/scripts/setup.sh
+   ```
+   It checks Xcode, finds your Team ID, suggests a bundle ID, writes `ios/Config/Local.xcconfig` (gitignored: your identity never goes into the repo), and opens the project. If you have several teams, it asks which one.
+3. In Xcode, wait until the **Meta Wearables** package has finished downloading (progress at the top of the window).
+4. Plug in your iPhone, pick it next to the **Carbon** scheme at the top, and press **Run** (⌘R).
+5. First time only, on the iPhone: turn on **Settings › Privacy & Security › Developer Mode** (the phone restarts), then trust your Apple ID in **Settings › General › VPN & Device Management**. Press Run again.
+
+With a free Apple ID the app stops opening after **7 days**. Plug the phone in and press Run again; nothing is lost.
+
+### 2. The glasses
+
+1. Install **Meta AI** (v272+) and pair your Meta Ray-Ban Display glasses (firmware v125+).
+2. Turn on **Developer Mode** in Meta AI: **Settings › App Info**, tap the version number 5 times. CARBON registers through Developer Mode, so you don't need a Meta developer account. Only one Developer Mode app can be registered at a time.
+3. Open CARBON. Its **setup checklist** walks you through the rest: connect to Meta AI, glasses connected, glasses camera allowed, Bluetooth. Any row that isn't done says how to fix it. You can reopen the checklist later from **04 / Settings**.
+4. Tap **START** and look for CARBON on the glasses.
+
+### 3. The laptop companion (optional, Windows)
+
+- **Prebuilt:** download `CARBON-Companion.exe` from [Releases](https://github.com/RRfyOfficial/CARBON/releases). Move it to a folder you'll keep (it starts itself at login from wherever it is), then run it. It isn't code-signed, so Windows SmartScreen warns the first time: click **More info › Run anyway**.
+- **From source:** install the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0), then run `powershell -ExecutionPolicy Bypass -File windows\install.ps1`. It builds the same single `.exe`, installs it for your user (no admin), and adds it to the Start menu.
+
+Then pair it with the phone: see **The laptop target** below.
+
+### Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| The checklist says Meta AI isn't connected, or registration fails | Developer Mode is off in Meta AI (step 2.2), or another Developer Mode app is registered. Turn it on and tap CONNECT TO META AI again |
+| The glasses show "update required" or nothing happens on START | With the glasses on: Meta AI › App connections, and update the toolkit app on the glasses |
+| Xcode: "Failed to register bundle identifier" | That bundle ID is taken. Run `bash ios/scripts/setup.sh --bundle com.yourname.SomethingElse` |
+| Xcode can't resolve the Meta Wearables package | File › Packages › Reset Package Caches, then build again |
+| The laptop won't link after re-pairing | Forget the pairing on **both** sides (FORGET PHONE in the companion, and Settings › Bluetooth › your PC › Forget This Device on the phone), then pair again |
+| Scans miss lines of small text | Move closer, or hold the camera button for a detail scan |
+
+Contributors: the lab workflow this repo was built with (code on Windows, compiled on a Mac over SSH) is in [CLAUDE.md](CLAUDE.md).
 
 ## Using it
 
-1. Open CARBON on the iPhone. On first run, connect to Meta AI and allow the glasses camera.
+1. Open CARBON on the iPhone. On first run, the setup checklist connects it to Meta AI and the glasses.
 2. Tap **START**. The glasses show MAIN with **SCAN**, **HISTORY** and **SETTINGS**.
 3. Look at the text and **pinch SCAN**, or short-press the **camera button** on the glasses.
 4. About 5–6 seconds later the glasses show **COPIED**. Paste anywhere on the phone (or see the laptop target below).
@@ -61,7 +106,7 @@ A step-by-step "build it yourself" guide comes with M5. Until then, this repo is
 
 ### The laptop target (Windows)
 
-1. **Install the companion** (no admin rights needed): `powershell -ExecutionPolicy Bypass -File windows\install.ps1`. It builds one `CARBON Companion.exe`, adds it to the Start menu, starts it, and launches it at every login (switch that off in its panel).
+1. **Install the companion** (see Build it yourself, step 3). It runs in the tray and launches at every login (switch that off in its panel).
 2. **Pair once:** open CARBON on the phone, click the dotted **C** in the tray, then **PAIR A PHONE**, and tap **Pair** when the phone asks.
 3. On the phone, **04 / Settings**: set **TARGET** to your laptop, and **PASTE** to **CLIPBOARD** (you press Ctrl+V) or **AUTOPASTE** (CARBON pastes into the window you last clicked).
 

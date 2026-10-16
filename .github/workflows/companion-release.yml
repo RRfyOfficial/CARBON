@@ -1,0 +1,54 @@
+# CARBON Companion release (SPEC M5): push a tag like companion-v0.1.0 and GitHub builds, tests and
+# publishes one self-contained CARBON-Companion.exe as a release. "Run workflow" in the Actions tab
+# does the same without a release and keeps the exe as a downloadable build artifact.
+name: Companion release
+
+on:
+  push:
+    tags: ['companion-v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Test (the shared protocol test vectors included)
+        run: dotnet test windows/Carbon.Companion.sln -c Release
+
+      - name: Publish one self-contained exe
+        run: dotnet publish windows/src/Carbon.Companion/Carbon.Companion.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o publish
+
+      - name: Name it without a space (release assets can't keep one)
+        shell: pwsh
+        run: Move-Item "publish/CARBON Companion.exe" "publish/CARBON-Companion.exe"
+
+      - name: Create the release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $notes = @"
+          CARBON Companion for Windows 10/11: scans from your Meta Ray-Ban Display glasses land on this PC's clipboard, or paste themselves.
+
+          - Download CARBON-Companion.exe, move it to a folder you'll keep (it starts itself at login from there), and run it.
+          - It isn't code-signed, so Windows SmartScreen warns the first time: More info > Run anyway.
+          - Pair it with the CARBON iPhone app: README > The laptop target.
+          "@
+          gh release create "${{ github.ref_name }}" "publish/CARBON-Companion.exe" --title "CARBON Companion ${{ github.ref_name }}" --notes $notes
+
+      - name: Keep the exe as a build artifact (manual runs)
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: CARBON-Companion
+          path: publish/CARBON-Companion.exe

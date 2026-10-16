@@ -4,7 +4,7 @@
 > - Every question has a recorded answer. U8 has a fallback plan for M2.
 > - Every proposed decision was approved and recorded in the project's decision log.
 > - Wi-Fi check: Xcode offers neither Hotspot nor Access Wi-Fi Information to a free Personal Team, so photos stay on Bluetooth.
-> - Spike code lives on the `spike/m0` branch (the "CARBON Lab" app, and `tools/spike/u8check`). It isn't merged.
+> - The spike code (a throwaway "CARBON Lab" test app and a Bluetooth check tool) has been removed; its results are in this report.
 > SPEC Section 1.4 lists the questions. Section 8.3 defines the capture benchmark.
 
 ## Summary
@@ -111,7 +111,7 @@ Microsoft describes `Aborted` as *"unable to submit the advertisement request, o
 - Windows restricts GATT-server advertising for unpackaged processes.
 - A limit in the Intel driver.
 
-SimpleBLE's Windows peripheral support was validated on a USB dongle. The test program is on `spike/m0` at `tools/spike/u8check`.
+SimpleBLE's Windows peripheral support was validated on a USB dongle. (The M2 follow-up test is `tools/spike/linkcheck`.)
 
 **Fallback order for M2** (try in order, stop at the first that works):
 1. Run the same code **with package identity**, as a packaged or sparse-packaged companion. If Windows only allows this for packaged apps, this fixes it at no cost.

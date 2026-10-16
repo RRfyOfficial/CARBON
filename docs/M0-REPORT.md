@@ -2,7 +2,7 @@
 
 > **Status: M0 complete (2026-10-10).**
 > - Every question has a recorded answer. U8 has a fallback plan for M2.
-> - Russell approved every proposed decision. They're recorded in the SPEC decision log and the affected SPEC sections.
+> - Every proposed decision was approved and recorded in the project's decision log.
 > - Wi-Fi check: Xcode offers neither Hotspot nor Access Wi-Fi Information to a free Personal Team, so photos stay on Bluetooth.
 > - Spike code lives on the `spike/m0` branch (the "CARBON Lab" app, and `tools/spike/u8check`). It isn't merged.
 > SPEC Section 1.4 lists the questions. Section 8.3 defines the capture benchmark.
@@ -21,7 +21,7 @@
 | U8 | Can the Zephyrus act as a BLE peripheral? | **Not as tested.** The flag says yes, plain advertising works, but GATT advertising always fails from an unpackaged app. Fallback order set for M2 | ✅ Answered (fallback for M2) |
 | U9 | Can CARBON restart a session after the hinges reopen? | **Yes, automatically.** Lab screen back 2.1 s after the glasses reconnect, without touching the phone | ✅ Answered |
 | U10 | Does the first pinch on a sleeping display deliver `select`? | **Moot.** The display never slept during a session (4+ min with no app sends) | ✅ Answered (as observed) |
-| Bench | Capture configuration | **None passes both targets.** Russell chose fast scan LARGE/MEDIUM + detail scan LARGE/HIGH, and a p95 ≤ 8 s promise | ✅ Decided |
+| Bench | Capture configuration | **None passes both targets.** Chosen: fast scan LARGE/MEDIUM + detail scan LARGE/HIGH, and a p95 ≤ 8 s promise | ✅ Decided |
 
 **Biggest risk found:** photo transfer runs over **Bluetooth at roughly 25–65 KB/s**, so photo *size* drives latency.
 - MEDIUM quality is fast enough to be close to budget, but it erases thin and faint text.
@@ -115,7 +115,7 @@ SimpleBLE's Windows peripheral support was validated on a USB dongle. The test p
 
 **Fallback order for M2** (try in order, stop at the first that works):
 1. Run the same code **with package identity**, as a packaged or sparse-packaged companion. If Windows only allows this for packaged apps, this fixes it at no cost.
-2. A **USB Bluetooth adapter** (hardware, roughly $10–15). Ask Russell first.
+2. A **USB Bluetooth adapter** (hardware, roughly $10–15).
 3. **Swap the roles** (SPEC 9.1): the iPhone advertises, the laptop connects. The message layer is unchanged, but iOS limits background advertising, so reconnecting while CARBON is in the background needs care.
 
 ## Capture benchmark (preliminary)
@@ -199,7 +199,7 @@ Add about 0.3 s of OCR (Mac Vision measured 0.25–0.5 s per photo) plus the tri
 - **Code** suffers from Vision's language correction: `{`→`(`, `UUID`→`UUlD`, `func log`→`fune 10g`. That's not a capture problem.
 - **FULL/MEDIUM is never the better choice:** slower than LARGE/MEDIUM, and less accurate than LARGE/HIGH.
 
-**SPEC 8.3 rule result:** no configuration has p95 ≤ 6.0 s. LARGE/MEDIUM is the closest at 7.0 s. The rule can't pick a winner, so this goes to Russell (see "Decisions needed").
+**SPEC 8.3 rule result:** no configuration has p95 ≤ 6.0 s. LARGE/MEDIUM is the closest at 7.0 s. The rule can't pick a winner, so this became a decision (see "Decisions").
 
 ### Reading order: deskew (proposed SPEC 8.4 change)
 
@@ -220,7 +220,7 @@ Vision **does not output list bullets** at all: "•" never appears in its resul
 - If bullets matter later, detect them from layout: a consistent left indent with a gap to a small mark.
 - The CER scorer ignores bullet glyphs.
 
-## Decisions (made by Russell on 2026-10-10)
+## Decisions (made 2026-10-10)
 
 **Outcome:** 1 → C (fast scan + detail scan). 2 → relax to 8 s. 3 → approved, along with the U2, U3, U5, U6 and U9 decisions. 4 → local only. D was ruled out because Xcode doesn't offer Hotspot to a free Personal Team. All of it is in the SPEC decision log. The options as they were presented:
 
@@ -245,4 +245,4 @@ Vision **does not output list bullets** at all: "•" never appears in its resul
 1. ✅ Fixtures and the real benchmark: done 2026-10-10 (see "Slide benchmark").
 2. ✅ Wi-Fi check: Hotspot and Access Wi-Fi Information aren't offered to a free Personal Team. Photos stay on Bluetooth.
 3. ✅ U8: retested after a radio restart and with all devices disconnected. Recorded, with an M2 fallback order.
-4. ✅ Russell reviewed the plain-language summary and approved every decision on 2026-10-10. Recorded in the SPEC decision log.
+4. ✅ Every decision was reviewed and approved on 2026-10-10, and recorded in the decision log.

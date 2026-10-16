@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # CARBON · mac.sh
-# Runs ON THE LAB iMAC. Claude Code (on the Zephyrus) calls it over SSH:
+# For building on a Mac you reach over SSH. Runs ON THE BUILD MAC; call it from your own computer:
 #
-#   ssh lab-imac "bash ~/Desktop/carbon/ios/scripts/mac.sh <command>"
+#   ssh <build-mac> "bash <path to the clone>/ios/scripts/mac.sh <command>"
 #
 # Commands:
 #   doctor            Show machine health: Xcode, free disk, repo state, simulators.
@@ -25,7 +25,8 @@
 
 set -euo pipefail
 
-REPO="$HOME/Desktop/carbon"
+# The clone this script lives in (ios/scripts/mac.sh).
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PROJECT="$REPO/ios/Carbon.xcodeproj"
 SCHEME="Carbon"
 DERIVED="$REPO/ios/build/sim"
@@ -45,7 +46,7 @@ check_disk() {
   gb="$(free_gb)"
   if [ "$gb" -lt "$MIN_FREE_GB" ]; then
     say "DISK ALMOST FULL: only ${gb} GB free (need ${MIN_FREE_GB}+)."
-    say "A full disk caused the 2026-10-09 Xcode failures. Ask Russell before deleting anything."
+    say "A full disk caused the 2026-10-09 Xcode failures. Check with the Mac's owner before deleting anything."
     say "Safe to clear: ~/Library/Developer/Xcode/DerivedData, ~/Library/Caches, $REPO/ios/build"
     exit 5
   fi
@@ -62,7 +63,7 @@ require_clean() {
   if [ -n "$(git status --porcelain)" ]; then
     say "The iMac clone has local changes. Nobody should edit files on the iMac."
     git status --short
-    say "Ask Russell how to handle these before continuing."
+    say "Nobody should edit files in the build clone; sort these out before continuing."
     exit 3
   fi
 }
@@ -88,7 +89,7 @@ copy_from_phone() {
       --device "$CARBON_UDID" \
       --domain-type appDataContainer --domain-identifier "$bundle_id" \
       --source "$1" --destination "$2" >/dev/null; then
-    say "Couldn't copy $1 from the phone. Is it unlocked, on the lab network, and has the app run once?"
+    say "Couldn't copy $1 from the phone. Is it unlocked, on the same network as this Mac, and has the app run once?"
     exit 1
   fi
 }

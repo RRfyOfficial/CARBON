@@ -2,7 +2,7 @@
 
 **REQUIRES iOS 26 OR NEWER.**
 
-Look at a board, slide or screen through **Meta Ray-Ban Display** glasses, pinch once, and the text lands on your **iPhone's clipboard** or on your **Windows laptop**, where it can even paste itself. Think of it as a carbon copy of whatever is in front of you.
+Look at a text, slide or screen through **Meta Ray-Ban Display** glasses, pinch once, and the text lands on your **iPhone's clipboard** or on your **Windows laptop**, where it can even paste itself. Just like a carbon copy of whatever is in front of you.
 
 ```
 pinch SCAN (or press the camera button)
@@ -12,20 +12,11 @@ pinch SCAN (or press the camera button)
   → the glasses show COPIED and tick
 ```
 
-No internet in the scan path, no paid services, no cloud OCR.
+- No internet in the scan path
+- No paid services used 
+- No cloud OCR.
 
-## Status
-
-| Milestone | State |
-|---|---|
-| M0: spike tests | ✅ Done 2026-10-10 ([docs/M0-REPORT.md](docs/M0-REPORT.md)) |
-| M1: scan → phone clipboard | ✅ Done 2026-10-10. Body-text slides read with 0% errors; 95% of scans finish within 7.5 s |
-| M2: laptop target | ✅ Done 2026-10-10. Clipboard and autopaste on Windows; autopaste 11/11 in the right window; 95% of scans within 6.7 s; nothing lost when the laptop is out of reach |
-| M3: settings, history, detail scan, polish | ✅ Done 2026-10-10. Settings and history on the glasses, RESEND, and a detail scan that reads fine print (the dense slide went from 24% errors to 0%) |
-| M4: Clean mode (headings, lists, tables) | Later (deferred) |
-| M5: public release (build it yourself) | 🛠 In progress |
-
-## What you need
+## Requirements
 
 - iPhone on **iOS 26 or newer**.
 - **Meta Ray-Ban Display** glasses with the Neural Band, Meta AI app v272+, glasses firmware v125+.
@@ -126,8 +117,9 @@ Photos never leave the iPhone and are deleted right after reading. History is th
 | `assets/` | Brand and app icon sources |
 | `docs/` | Milestone reports |
 
-## Credits and licenses
+## License and credits
 
+- CARBON is released under the [MIT License](LICENSE).
 - Fonts: Doto, Space Mono, Space Grotesk under the SIL Open Font License (licences in `ios/Carbon/Resources/Fonts/`).
 - Meta Wearables Device Access Toolkit: Meta's [Wearables Developer Terms](https://wearables.developer.meta.com/terms).
 - Design language: Tactura.

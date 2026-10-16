@@ -34,3 +34,7 @@ __pycache__/
 # ---- Editors ----
 .vscode/*
 !.vscode/extensions.json
+
+# ---- Private project docs (kept on Russell's laptop only) ----
+CLAUDE.md
+SPEC.md

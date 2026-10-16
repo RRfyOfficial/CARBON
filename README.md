@@ -22,16 +22,14 @@ No internet in the scan path, no paid services, no cloud OCR.
 | M1: scan → phone clipboard | ✅ Done 2026-10-10. Body-text slides read with 0% errors; 95% of scans finish within 7.5 s |
 | M2: laptop target | ✅ Done 2026-10-10. Clipboard and autopaste on Windows; autopaste 11/11 in the right window; 95% of scans within 6.7 s; nothing lost when the laptop is out of reach |
 | M3: settings, history, detail scan, polish | ✅ Done 2026-10-10. Settings and history on the glasses, RESEND, and a detail scan that reads fine print (the dense slide went from 24% errors to 0%) |
-| M4: Clean mode (headings, lists, tables) | Later (deferred; the plan is in the SPEC) |
+| M4: Clean mode (headings, lists, tables) | Later (deferred) |
 | M5: public release (build it yourself) | 🛠 In progress |
-
-Details and acceptance criteria: [SPEC.md](SPEC.md), Section 12. Every decision along the way: Section 14.
 
 ## What you need
 
 - iPhone on **iOS 26 or newer**.
 - **Meta Ray-Ban Display** glasses with the Neural Band, Meta AI app v272+, glasses firmware v125+.
-- **Developer Mode** on in the Meta AI app: Settings › App Info › tap the version number 5 times. CARBON doesn't use a Wearables Developer Center project (SPEC 11.5).
+- **Developer Mode** on in the Meta AI app: Settings › App Info › tap the version number 5 times. CARBON doesn't use a Wearables Developer Center project.
 - A Mac with Xcode 26 to build. A free Apple ID works, but builds expire after 7 days.
 - For the laptop target: a **Windows 10/11** PC with Bluetooth LE. The companion comes prebuilt from [Releases](https://github.com/RRfyOfficial/CARBON/releases), or you build it with the .NET 8 SDK.
 
@@ -80,8 +78,6 @@ Then pair it with the phone: see **The laptop target** below.
 | The laptop won't link after re-pairing | Forget the pairing on **both** sides (FORGET PHONE in the companion, and Settings › Bluetooth › your PC › Forget This Device on the phone), then pair again |
 | Scans miss lines of small text | Move closer, or hold the camera button for a detail scan |
 
-Contributors: the lab workflow this repo was built with (code on Windows, compiled on a Mac over SSH) is in [CLAUDE.md](CLAUDE.md).
-
 ## Using it
 
 1. Open CARBON on the iPhone. On first run, the setup checklist connects it to Meta AI and the glasses.
@@ -123,8 +119,6 @@ Photos never leave the iPhone and are deleted right after reading. History is th
 
 | Path | What |
 |---|---|
-| [SPEC.md](SPEC.md) | What to build: the source of truth. Section 14 is the **decision log** |
-| [CLAUDE.md](CLAUDE.md) | How to work here: machines, the remote build loop, gotchas |
 | `ios/` | The iPhone app (Swift 6, SwiftUI, Meta Wearables Device Access Toolkit) |
 | `windows/` | CARBON Companion, the Windows tray app (C#, .NET 8, WPF) and its tests |
 | [protocol/](protocol/PROTOCOL.md) | The phone ↔ laptop Bluetooth protocol, and the test vectors both sides must match |

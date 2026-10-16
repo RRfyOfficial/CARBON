@@ -1,6 +1,6 @@
 # CARBON link protocol, v1
 
-The source of truth for the iPhone ↔ Windows link. SPEC Section 9 summarizes it. A change lands here first, with its test vectors, then on both sides in the same milestone (SPEC rule 9).
+The source of truth for the iPhone ↔ Windows link. A change lands here first, with its test vectors, then on both sides together.
 
 ## 1. Roles
 
@@ -114,7 +114,7 @@ JSON Schemas: `schema/hello.v1.json`, `schema/clip.v1.json`, `schema/ack.v1.json
 - `copied` / `pasted` → DONE. `paste_blocked` / `autopaste_disabled` → their screens (the text is on the laptop clipboard).
 - No ack in time, or `error` → mark the scan NOT DELIVERED, put the text on the phone clipboard (right away if CARBON is open, otherwise the moment it opens: M0 U5), and show `NOT_DELIVERED`. **The scan is never lost.**
 - The laptop remembers the last 50 clip ids. A repeated id is acked again with the same result but **never pasted twice**.
-- The phone truncates text over 32,000 characters before sending (SPEC 6.8).
+- The phone truncates text over 32,000 characters before sending.
 
 ## 7. Versioning
 

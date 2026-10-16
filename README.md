@@ -132,4 +132,3 @@ Photos never leave the iPhone and are deleted right after reading. History is th
 - CARBON is released under the [MIT License](LICENSE).
 - Fonts: Doto, Space Mono, Space Grotesk under the SIL Open Font License (licences in `ios/Carbon/Resources/Fonts/`).
 - Meta Wearables Device Access Toolkit: Meta's [Wearables Developer Terms](https://wearables.developer.meta.com/terms).
-- Design language: Tactura.

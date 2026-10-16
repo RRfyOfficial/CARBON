@@ -158,7 +158,7 @@ final class AppStore {
     /// What switching TARGET did with the latest scan, e.g. "LAST SCAN (214 CHARS) COPIED TO PHONE".
     private(set) var targetSwitchNote: String?
 
-    /// TARGET picked in the phone app. The latest scan follows the switch (Russell, M2): to PHONE it
+    /// TARGET picked in the phone app. The latest scan follows the switch: to PHONE it
     /// goes on the phone clipboard (CARBON is on screen, so iOS allows it); to the laptop it's sent
     /// as CLIPBOARD whatever PASTE says, so a switch never types into whatever window is active.
     func chooseTarget(laptop: Bool) {

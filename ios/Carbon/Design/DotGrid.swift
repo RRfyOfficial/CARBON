@@ -1,4 +1,4 @@
-// Near-black background with a faint dot grid, about 3% opacity (SPEC 7.2).
+// Near-black background with a faint dot grid, about 3% opacity.
 
 import SwiftUI
 

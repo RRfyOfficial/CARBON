@@ -1,4 +1,4 @@
-# CARBON Companion release (SPEC M5): push a tag like companion-v0.1.0 and GitHub builds, tests and
+# CARBON Companion release: push a tag like companion-v0.1.0 and GitHub builds, tests and
 # publishes one self-contained CARBON-Companion.exe as a release. "Run workflow" in the Actions tab
 # does the same without a release and keeps the exe as a downloadable build artifact.
 name: Companion release

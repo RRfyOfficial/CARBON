@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# CARBON · setup.sh: run once on your Mac after cloning (SPEC M5, README "Build it yourself").
+# CARBON · setup.sh: run once on your Mac after cloning (README, "Build it yourself").
 #
 #   bash ios/scripts/setup.sh [--team TEAMID] [--bundle com.you.Carbon] [--yes] [--dry-run] [--no-open]
 #

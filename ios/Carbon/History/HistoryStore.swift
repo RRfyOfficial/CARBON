@@ -1,4 +1,4 @@
-// Scan history (SPEC 6.4): the last 20 scans, newest first, stored as JSON on the phone.
+// Scan history: the last 20 scans, newest first, stored as JSON on the phone.
 
 import Foundation
 import Observation

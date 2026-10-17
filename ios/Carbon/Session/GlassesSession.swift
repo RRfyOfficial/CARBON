@@ -10,7 +10,7 @@ import MWDATCore
 import MWDATDisplay
 import MWDATInputs
 
-/// One status badge on the phone's SESSION panel (SPEC 6.6).
+/// One status badge on the phone's SESSION panel.
 nonisolated struct Badge: Equatable, Sendable {
     enum Level: Sendable {
         case ready
@@ -46,7 +46,7 @@ final class GlassesSession {
         didSet { if phase != oldValue { onPhaseChanged?(phase) } }
     }
     private(set) var isRegistered = false
-    /// The setup checklist's fix-it line when registration failed; nil when fine (SPEC M5).
+    /// The setup checklist's fix-it line when registration failed; nil when fine.
     private(set) var registrationProblem: String?
     /// Glasses camera permission as last checked; nil until it could be checked.
     private(set) var cameraAllowed: Bool?
@@ -127,12 +127,12 @@ final class GlassesSession {
         }
     }
 
-    /// The setup checklist's fix-it line for a failed registration (SPEC M5). nil when it's fine.
+    /// The setup checklist's fix-it line for a failed registration. nil when it's fine.
     private static func advice(for error: any Error) -> String? {
         switch error as? RegistrationError {
         case .alreadyRegistered: nil
         case .metaAINotInstalled: "INSTALL META AI FROM THE APP STORE, SIGN IN, AND PAIR YOUR GLASSES THERE"
-        // CARBON registers through Developer Mode instead of a Developer Center app (SPEC 11.5).
+        // CARBON registers through Developer Mode instead of a Developer Center app.
         case .configurationInvalid: "TURN ON DEVELOPER MODE IN META AI: SETTINGS › APP INFO › TAP THE VERSION NUMBER 5 TIMES"
         case .networkUnavailable: "CONNECT THE PHONE TO THE INTERNET AND TRY AGAIN"
         default: "META AI DIDN'T FINISH REGISTERING. OPEN META AI ONCE, THEN TRY AGAIN"
@@ -437,14 +437,14 @@ final class GlassesSession {
 
     var isPhotoReady: Bool { photoReady }
 
-    /// Asks the glasses for one photo. Fast scan LARGE/MEDIUM, detail scan LARGE/HIGH (SPEC 8.2).
+    /// Asks the glasses for one photo. Fast scan LARGE/MEDIUM, detail scan LARGE/HIGH.
     func capturePhoto(_ kind: ScanKind) -> Bool {
         guard photoReady, let activeCamera else { return false }
         activeCamera.photo.capturePhoto(resolution: .large, quality: kind == .fast ? .medium : .high)
         return true
     }
 
-    /// A fresh camera for the bounded retry (SPEC 8.2). Display and Inputs stay attached.
+    /// A fresh camera for the bounded retry. Display and Inputs stay attached.
     func restartCamera() {
         guard session != nil else { return }
         log.add("restarting the camera")

@@ -1,4 +1,4 @@
-// Character error rate (SPEC 8.3), identical to tools/ocr.swift so on-device and Mac numbers compare.
+// Character error rate, identical to tools/ocr.swift so on-device and Mac numbers compare.
 
 import Foundation
 

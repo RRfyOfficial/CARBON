@@ -1,5 +1,7 @@
 # M0 report: spike test results
 
+> SPEC references ("SPEC 8.4", "the SPEC decision log") point to the project's working spec, which isn't published.
+
 > **Status: M0 complete (2026-10-10).**
 > - Every question has a recorded answer. U8 has a fallback plan for M2.
 > - Every proposed decision was approved and recorded in the project's decision log.

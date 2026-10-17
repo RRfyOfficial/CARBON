@@ -1,4 +1,4 @@
-// Synthesized ticks, no audio files (SPEC 7.6). They route to the glasses speakers over
+// Synthesized ticks, no audio files. They route to the glasses speakers over
 // Bluetooth A2DP and mix with other audio (M0 U7).
 
 import AVFoundation

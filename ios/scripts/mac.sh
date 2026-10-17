@@ -196,7 +196,7 @@ case "$cmd" in
     ;;
 
   ocr)
-    # Reader v1 (SPEC 8.4) on the Mac's Vision, with CER (SPEC 8.3). M0 uses it to pick
+    # Reader v1 on the Mac's Vision, with CER. M0 uses it to pick
     # the capture configuration. Relative folders are taken from the repo root.
     folder="${2:-ios/build/phone/captures}"
     case "$folder" in /*) ;; *) folder="$REPO/$folder" ;; esac

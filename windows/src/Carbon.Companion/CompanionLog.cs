@@ -4,7 +4,7 @@ using System.IO;
 namespace Carbon.Companion;
 
 /// <summary>
-/// %LOCALAPPDATA%\CARBON\logs\companion-yyyyMMdd.log, one file a day, the newest 7 kept (SPEC 10).
+/// %LOCALAPPDATA%\CARBON\logs\companion-yyyyMMdd.log, one file a day, the newest 7 kept.
 /// Lengths, states and results only: never clip text.
 /// </summary>
 public sealed class CompanionLog

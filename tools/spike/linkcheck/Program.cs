@@ -1,4 +1,4 @@
-// M2 spike: the laptop as the BLE central and the phone as the peripheral (roles swapped, SPEC 9.1),
+// M2 spike: the laptop as the BLE central and the phone as the peripheral (roles swapped),
 // because this laptop can't run a GATT server (M0 U8, retested in M2). Works with the LINK TEST
 // section in CARBON's Diagnostics. The question: once bonded, does Windows reconnect by itself
 // while CARBON is in the background and the phone is locked?

@@ -1,4 +1,4 @@
-// The three Tactura faces (SPEC 4, 7.2), bundled in Resources/Fonts and registered through
+// The three Tactura faces, bundled in Resources/Fonts and registered through
 // UIAppFonts in Config/Carbon-Info.plist. Doto and Space Grotesk are variable fonts whose default
 // instances are Black and Light, so weights are always set explicitly through the 'wght' axis.
 
@@ -31,7 +31,7 @@ enum Typeface {
 }
 
 extension View {
-    /// Tactura label: Space Mono, uppercase, 0.08em tracking, muted (SPEC 7.2).
+    /// Tactura label: Space Mono, uppercase, 0.08em tracking, muted.
     func tacturaLabel(_ size: CGFloat = 11, color: Color = Palette.textMuted) -> some View {
         font(Typeface.label(size))
             .tracking(size * 0.08)

@@ -4,7 +4,7 @@ using System.Text.Json;
 namespace Carbon.Companion;
 
 /// <summary>
-/// %LOCALAPPDATA%\CARBON\settings.json (SPEC 10). No secrets: the pairing keys live in the Windows
+/// %LOCALAPPDATA%\CARBON\settings.json. No secrets: the pairing keys live in the Windows
 /// Bluetooth bond; this only remembers which device is the paired phone.
 /// </summary>
 public sealed class CompanionSettings

@@ -1,6 +1,6 @@
-// The setup checklist (SPEC 6.6, M5): shown on first run and from 04 / SETTINGS. Each row re-checks
+// The setup checklist: shown on first run and from 04 / SETTINGS. Each row re-checks
 // itself while the sheet is open, and a row that isn't done says exactly how to fix it.
-// Registration goes through Developer Mode in Meta AI, not a Developer Center app (SPEC 11.5).
+// Registration goes through Developer Mode in Meta AI, not a Developer Center app.
 
 import CoreBluetooth
 import SwiftUI

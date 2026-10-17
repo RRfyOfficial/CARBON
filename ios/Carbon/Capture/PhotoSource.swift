@@ -1,4 +1,4 @@
-// The Capture socket (SPEC 8.1) and its v1 implementation, a photo from the glasses (SPEC 8.2).
+// The Capture socket and its v1 implementation, a photo from the glasses.
 
 import Foundation
 
@@ -30,7 +30,7 @@ final class GlassesPhotoSource: PhotoSource {
 
     func capture(_ kind: ScanKind, onProgress: @escaping (Double) -> Void) async throws(ScanError) -> Data {
         guard !isBusy else { throw .captureFailed }
-        // Bounded retry (SPEC 8.2): one silent retry with a fresh camera, then CAPTURE_FAILED.
+        // Bounded retry: one silent retry with a fresh camera, then CAPTURE_FAILED.
         for attempt in 1...2 {
             if !(await waitUntilReady(timeout: .seconds(5))) {
                 log.add("photo not ready (attempt \(attempt))")
@@ -66,7 +66,7 @@ final class GlassesPhotoSource: PhotoSource {
         }
     }
 
-    /// TIMEOUT after 10 s with no transfer progress or 30 s in total (SPEC 6.2). The slot stays
+    /// TIMEOUT after 10 s with no transfer progress or 30 s in total. The slot stays
     /// busy until the photo or an SDK error still arrives, because the glasses queue requests (M0).
     private func startWatchdog(serial mySerial: Int) {
         Task {

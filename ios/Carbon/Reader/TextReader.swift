@@ -1,4 +1,4 @@
-// The Reader socket (SPEC 8.1): photo bytes in, text in reading order out.
+// The Reader socket: photo bytes in, text in reading order out.
 
 import CoreGraphics
 import Foundation
@@ -22,7 +22,7 @@ nonisolated struct ReadText: Sendable, Equatable {
     var skewDegrees: Double = 0
     var cutEdges: Set<CutEdge> = []
 
-    /// Fewer than 2 recognized characters counts as no text (SPEC 8.4).
+    /// Fewer than 2 recognized characters counts as no text.
     var isEmpty: Bool {
         blocks.joined().joined().filter { !$0.isWhitespace }.count < 2
     }

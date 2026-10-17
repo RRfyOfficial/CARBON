@@ -1,4 +1,4 @@
-// What the glasses show (SPEC 6.2). Every case is one full display send. Plain values: the
+// What the glasses show. Every case is one full display send. Plain values: the
 // builders in Screens/ turn them into display views.
 
 import Foundation
@@ -8,14 +8,14 @@ nonisolated enum GlassesScreen: Equatable, Sendable {
     case scanning(Scanning)
     case done(Done, filled: Bool)
     case error(ScanError, elapsed: Double?)
-    /// A new laptop pairing completed during a session (SPEC 6.2, PAIR).
+    /// A new laptop pairing completed during a session.
     case linked(name: String, filled: Bool)
-    /// One saved scan (SPEC 6.2, HISTORY).
+    /// One saved scan (HISTORY).
     case history(History)
     case settings(Settings)
     /// SETTINGS › PAIR NEW COMPUTER: pairing runs from the phone and the companion.
     case pairInfo
-    /// The dot-matrix wordmark while the display starts (SPEC 7.4).
+    /// The dot-matrix wordmark while the display starts.
     case boot
 
     nonisolated struct History: Equatable, Sendable {
@@ -39,7 +39,7 @@ nonisolated enum GlassesScreen: Equatable, Sendable {
         var sound: Bool
     }
 
-    /// The rows of SETTINGS, in order (SPEC 6.2).
+    /// The rows of SETTINGS, in order.
     nonisolated enum SettingRow: Sendable {
         case target, paste, lineBreaks, sound, pair
     }
@@ -59,7 +59,7 @@ nonisolated enum GlassesScreen: Equatable, Sendable {
 
             static func < (a: Stage, b: Stage) -> Bool { a.rawValue < b.rawValue }
 
-            /// The last stage is SEND for the laptop and COPY for the phone (SPEC 6.2).
+            /// The last stage is SEND for the laptop and COPY for the phone.
             func railName(toLaptop: Bool) -> String {
                 switch self {
                 case .capture: "CAPTURE"
@@ -137,7 +137,7 @@ nonisolated extension ScanError {
         }
     }
 
-    /// The scan is safe (saved or copied); shown like DONE, with no RETRY (SPEC 6.2).
+    /// The scan is safe (saved or copied); shown like DONE, with no RETRY.
     var isSafe: Bool {
         switch self {
         case .notDelivered, .notDeliveredOpenToCopy, .openToCopy, .pasteBlocked, .autopasteOff: true

@@ -1,4 +1,4 @@
-// Tactura's signature shape: a rectangle with one 45° chamfered top-right corner (SPEC 7.2).
+// Tactura's signature shape: a rectangle with one 45° chamfered top-right corner.
 
 import SwiftUI
 

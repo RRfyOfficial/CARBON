@@ -1,4 +1,4 @@
-// Display views for each glasses screen (SPEC 6.2, 7.3). This file imports MWDATDisplay and not
+// Display views for each glasses screen. This file imports MWDATDisplay and not
 // SwiftUI, because both define Text, Button and Image. Glasses rules: system text only, at most
 // one heading and one primary button per screen, uppercase microcopy, no large bright fills.
 
@@ -64,7 +64,7 @@ enum GlassesScreens {
         .padding(24)
     }
 
-    /// Each row is an outline button reading "LABEL · VALUE"; a pinch cycles it (SPEC 6.2).
+    /// Each row is an outline button reading "LABEL · VALUE"; a pinch cycles it.
     static func settings(_ model: GlassesScreen.Settings, actions: Actions) -> some DisplayableView {
         FlexBox(direction: .column, spacing: 10) {
             FlexBox(direction: .row, spacing: 8) {
@@ -149,7 +149,7 @@ enum GlassesScreens {
             if code.isSafe {
                 Icon(name: .checkmarkCircle, style: .outline)
             } else {
-                // The only red on the glasses (SPEC 7.3): a small pre-rendered glyph.
+                // The only red on the glasses: a small pre-rendered glyph.
                 Image(image: GlassesArt.errorGlyph, sizePreset: .icon)
             }
             Text(code.heading, style: .heading, color: .primary)

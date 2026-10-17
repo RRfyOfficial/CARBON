@@ -1,4 +1,4 @@
-// The phone app is a minimal control room (SPEC 6.6): one scrolling screen of numbered panels.
+// The phone app is a minimal control room: one scrolling screen of numbered panels.
 // The glasses are the real app.
 
 import SwiftUI

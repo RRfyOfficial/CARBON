@@ -5,7 +5,7 @@ using System.Windows.Media;
 namespace Carbon.Companion;
 
 /// <summary>
-/// Tactura's signature shape (SPEC 7.2): a rectangle with one 45° chamfered top-right corner,
+/// Tactura's signature shape: a rectangle with one 45° chamfered top-right corner,
 /// a fill and a 1 px hairline. The child is clipped to the shape.
 /// </summary>
 public sealed class ChamferBox : Decorator

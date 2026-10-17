@@ -1,5 +1,4 @@
-// Tactura design tokens (SPEC 7.2). The CSS block in the SPEC is the source of truth;
-// keep these values identical to it and to the companion's Tokens.xaml.
+// Tactura design tokens. Keep these values identical to the companion's Tokens.xaml.
 
 import SwiftUI
 

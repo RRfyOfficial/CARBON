@@ -1,4 +1,4 @@
-// Owns the current glasses screen and every send to the display (SPEC 5, 6.2). The phone is the
+// Owns the current glasses screen and every send to the display. The phone is the
 // single source of truth: each send replaces the whole screen, so sends are serialized and only
 // the newest pending screen is ever sent.
 
@@ -46,7 +46,7 @@ final class GlassesRouter {
         enqueue(screen)
     }
 
-    /// The tick effect (SPEC 6.2): outline checkmark, then filled 120 ms later. Returns after frame 2.
+    /// The tick effect: outline checkmark, then filled 120 ms later. Returns after frame 2.
     func showDoneWithTick(_ done: GlassesScreen.Done) async {
         show(.done(done, filled: false))
         try? await Task.sleep(for: .milliseconds(120))

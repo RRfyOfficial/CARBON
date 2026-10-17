@@ -1,6 +1,6 @@
 // On-device accuracy check against the fixture deck (tools/fixture-deck): while it's on, each scan
 // is compared with the bundled ground truth for the current slide, then the slide advances.
-// M1 gates CER <= 2% on the body-text slides only (SPEC 12).
+// M1 gates CER <= 2% on the body-text slides only.
 
 import Foundation
 import Observation
@@ -16,7 +16,7 @@ nonisolated struct FixtureResult: Identifiable, Sendable {
 @Observable
 final class FixtureCheck {
     static let slideCount = 10
-    /// Title, bullets, paragraph, numbered list, numbers, dark slide (M0, SPEC 12 M1).
+    /// Title, bullets, paragraph, numbered list, numbers, dark slide (M0, M1).
     static let bodyTextSlides: Set<Int> = [1, 2, 3, 4, 7, 10]
 
     var isOn = false

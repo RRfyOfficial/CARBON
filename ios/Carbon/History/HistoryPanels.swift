@@ -1,4 +1,4 @@
-// 02 / LAST SCAN and 03 / HISTORY (SPEC 6.6). Browsing never sends anything (SPEC 6.4): tapping a
+// 02 / LAST SCAN and 03 / HISTORY. Browsing never sends anything: tapping a
 // scan copies it to the phone; RESEND (and DELETE) are in each scan's long-press menu, because the
 // panels are plain stacks, not Lists with swipe actions.
 

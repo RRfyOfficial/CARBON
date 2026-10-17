@@ -1,4 +1,4 @@
-// Core scan types (SPEC 8.1). Plain values, usable from any isolation domain.
+// Core scan types. Plain values, usable from any isolation domain.
 
 import Foundation
 
@@ -19,7 +19,7 @@ nonisolated enum ScanKind: String, Codable, Sendable {
     case detail
 }
 
-/// The error codes shown on the glasses (SPEC 6.2, ERROR).
+/// The error codes shown on the glasses' ERROR screen.
 nonisolated enum ScanError: String, Codable, Error, Sendable {
     case noText = "NO_TEXT"
     case captureFailed = "CAPTURE_FAILED"

@@ -1,4 +1,4 @@
-// The single app state (SPEC 5): owns the glasses session, the glasses screens, the pipeline,
+// The single app state: owns the glasses session, the glasses screens, the pipeline,
 // the laptop link, history and sound, and turns triggers into scans.
 
 import Foundation
@@ -37,7 +37,7 @@ final class AppStore {
     var onboardingDone: Bool {
         didSet { UserDefaults.standard.set(onboardingDone, forKey: Keys.onboardingDone) }
     }
-    // Settings (SPEC 6.5): one copy here, shown on the glasses and the phone, saved across restarts.
+    // Settings: one copy here, shown on the glasses and the phone, saved across restarts.
     /// TARGET: the paired laptop when true and one is paired, otherwise the phone.
     var targetIsLaptop: Bool {
         didSet {
@@ -138,13 +138,13 @@ final class AppStore {
 
     private var target: any ScanTarget { usesLaptop ? laptopTarget : phoneTarget }
 
-    /// The glasses header: TARGET·PHONE, LINK·ZEPHYRUS, or LINK·LOST (SPEC 6.2).
+    /// The glasses header: TARGET·PHONE, LINK·ZEPHYRUS, or LINK·LOST.
     var targetLabel: String {
         guard usesLaptop, let laptop = link.laptop else { return "TARGET·PHONE" }
         return link.isLinked ? "LINK·\(laptop.name.uppercased())" : "LINK·LOST"
     }
 
-    /// The SESSION panel's LINK badge (SPEC 6.6).
+    /// The SESSION panel's LINK badge.
     var linkBadge: Badge {
         let name = link.laptop?.name.uppercased()
         switch link.status {
@@ -253,7 +253,7 @@ final class AppStore {
             }
             scan(.fast)
         case let .capture(press, _, _) where press == .hold:
-            // Detail scan (SPEC 8.2): LARGE/HIGH, slower, for tables and fine print.
+            // Detail scan: LARGE/HIGH, slower, for tables and fine print.
             scan(.detail)
         case .select:
             if router.isOnMain { scan(.fast) }
@@ -272,7 +272,7 @@ final class AppStore {
             historyIndex = 0
             showHistory()
         case .newer:
-            // NEWER on the newest scan returns to MAIN (SPEC 6.2).
+            // NEWER on the newest scan returns to MAIN.
             if historyIndex == 0 {
                 router.show(.main(mainModel()))
             } else {
@@ -291,7 +291,7 @@ final class AppStore {
         }
     }
 
-    /// The display (re)started: the wordmark for a moment, then whatever was showing (SPEC 7.4).
+    /// The display (re)started: the wordmark for a moment, then whatever was showing.
     private func displayReady(_ display: Display) {
         router.attach(display)
         guard router.isOnMain else { return }
@@ -343,7 +343,7 @@ final class AppStore {
     }
 
     /// DONE, or the screen for where the text ended up, with tick and sound; returns once it has
-    /// been on screen long enough to read. Shared by fresh scans and RESEND (SPEC 6.4).
+    /// been on screen long enough to read. Shared by fresh scans and RESEND.
     private func showOutcome(_ scan: Scan, toLaptop: Bool, targetName: String, elapsed: Double) async {
         switch scan.delivery {
         case .delivered(let how):
@@ -374,7 +374,7 @@ final class AppStore {
         }
     }
 
-    // MARK: - History and settings on the glasses (SPEC 6.2-6.5)
+    // MARK: - History and settings on the glasses
 
     private func showHistory() {
         guard !history.scans.isEmpty else {
@@ -394,7 +394,7 @@ final class AppStore {
             lines: Self.preview(scan.text, lines: 8, width: 44))))
     }
 
-    /// RESEND (SPEC 6.4), from the glasses' HISTORY or the phone's: the saved text to the current
+    /// RESEND, from the glasses' HISTORY or the phone's: the saved text to the current
     /// target with the current paste mode, exactly once, with the same DONE tick and sound as a fresh
     /// scan. From the glasses it then goes back to the same history entry.
     func resend(_ scan: Scan, fromGlasses: Bool = false) {
@@ -435,7 +435,7 @@ final class AppStore {
             lineBreaks: lineBreaks, sound: sound)
     }
 
-    /// A pinch on a SETTINGS row cycles its value; the change shows on the phone too (SPEC 6.2).
+    /// A pinch on a SETTINGS row cycles its value; the change shows on the phone too.
     private func cycle(_ row: GlassesScreen.SettingRow) {
         switch row {
         case .target:
@@ -457,7 +457,7 @@ final class AppStore {
         case .stage(let stage):
             scanning.stage = stage
         case .transfer(let fraction):
-            // At most every 250 ms (SPEC 6.2). totalBytes under-reports, so never show 100% early.
+            // At most every 250 ms. totalBytes under-reports, so never show 100% early.
             guard ContinuousClock.now - lastTransferSend >= .milliseconds(250) else { return }
             lastTransferSend = .now
             scanning.transferPercent = min(99, Int(fraction * 100))
@@ -509,7 +509,7 @@ final class AppStore {
         scan.phoneCopyPending = nil
     }
 
-    /// p50 / p95 of trigger-to-delivered over the last 20 fast scans, in seconds (SPEC 8.6).
+    /// p50 / p95 of trigger-to-delivered over the last 20 fast scans, in seconds.
     var latencyStats: (p50: Double, p95: Double, count: Int)? {
         let totals = history.scans.filter { $0.kind == .fast }.prefix(20).compactMap(\.timings.delivered)
         guard !totals.isEmpty else { return nil }
@@ -594,7 +594,7 @@ final class AppStore {
         return model
     }
 
-    /// Up to 3 lines of about 40 characters, ellipsized: the "gray box" on MAIN (SPEC 6.2).
+    /// Up to 3 lines of about 40 characters, ellipsized: the "gray box" on MAIN.
     static func preview(_ text: String, lines: Int = 3, width: Int = 40) -> [String] {
         var result: [String] = []
         for line in text.split(separator: "\n", omittingEmptySubsequences: true) {

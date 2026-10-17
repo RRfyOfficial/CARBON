@@ -1,4 +1,4 @@
-// 04 / SETTINGS (SPEC 6.5): TARGET, PASTE, LINE BREAKS, SOUND, the paired computer, and the debug
+// 04 / SETTINGS: TARGET, PASTE, LINE BREAKS, SOUND, the paired computer, and the debug
 // toggle. The glasses' SETTINGS screen changes the same values.
 
 import SwiftUI

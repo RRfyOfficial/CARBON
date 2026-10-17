@@ -1,4 +1,4 @@
-// Tactura building blocks for the phone app (SPEC 6.6, 7.2): numbered panels with hairlines,
+// Tactura building blocks for the phone app: numbered panels with hairlines,
 // chamfered buttons and badges, Doto readouts. Signal red only for errors.
 
 import SwiftUI

@@ -1,4 +1,4 @@
-// 01 / SESSION (SPEC 6.6): START / STOP / RESUME and the status badges. Tap a badge for its reason.
+// 01 / SESSION: START / STOP / RESUME and the status badges. Tap a badge for its reason.
 
 import SwiftUI
 

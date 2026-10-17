@@ -1,11 +1,11 @@
-// The laptop target (SPEC 8.1, PROTOCOL.md Section 6): the clip goes over the link and the
+// The laptop target (protocol/PROTOCOL.md Section 6): the clip goes over the link and the
 // laptop's ack decides the outcome. Anything short of an ack is NOT DELIVERED, and the pipeline then
 // puts the text on the phone clipboard, so a scan is never lost.
 
 import Foundation
 
 final class LaptopTarget: ScanTarget {
-    /// SPEC 6.8: longer text is cut before sending.
+    /// Longer text is cut before sending.
     static let maxCharacters = 32_000
 
     private let link: LaptopLink

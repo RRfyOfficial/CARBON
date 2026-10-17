@@ -1,4 +1,4 @@
-// 05 / DIAGNOSTICS (SPEC 6.6): real measurements only (SPEC 3 rule 5). Latency over the last 20
+// 05 / DIAGNOSTICS: real measurements only. Latency over the last 20
 // scans, per-scan stage timings, the on-device fixture check, CSV export, and the event log.
 
 import SwiftUI

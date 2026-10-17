@@ -6,7 +6,7 @@ using System.Windows.Threading;
 namespace Carbon.Companion;
 
 /// <summary>
-/// The delivery toast (SPEC 6.7, 10): bottom-right for 2.5 s, topmost, and never activated, so an
+/// The delivery toast: bottom-right for 2.5 s, topmost, and never activated, so an
 /// autopaste can't land in it. It's shown after the paste.
 /// </summary>
 public partial class ToastWindow : Window

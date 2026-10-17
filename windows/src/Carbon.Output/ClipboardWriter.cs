@@ -4,7 +4,7 @@ using System.Windows;
 namespace Carbon.Output;
 
 /// <summary>
-/// SPEC 10: Unicode text on the clipboard, retried up to 10 times 50 ms apart while another app
+/// Unicode text on the clipboard, retried up to 10 times 50 ms apart while another app
 /// holds it open. Call on the STA (UI) thread. The previous contents are not restored.
 /// </summary>
 public static class ClipboardWriter

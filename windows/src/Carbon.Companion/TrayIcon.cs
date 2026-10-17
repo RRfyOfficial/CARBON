@@ -5,7 +5,7 @@ using Forms = System.Windows.Forms;
 
 namespace Carbon.Companion;
 
-/// <summary>The tray icon (SPEC 6.7): a dot-matrix "C". Left-click opens the panel.</summary>
+/// <summary>The tray icon: a dot-matrix "C". Left-click opens the panel.</summary>
 public sealed class TrayIcon : IDisposable
 {
     private readonly Forms.NotifyIcon icon;

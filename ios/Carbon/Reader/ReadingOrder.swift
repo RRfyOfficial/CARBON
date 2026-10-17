@@ -1,4 +1,4 @@
-// Reading order for Reader v1 (SPEC 8.4), including the deskew step added in M0.
+// Reading order for Reader v1, including the deskew step added in M0.
 // Pure geometry, no Vision: the same algorithm as tools/ocr.swift --deskew.
 
 import CoreGraphics

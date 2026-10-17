@@ -9,7 +9,7 @@ namespace Carbon.Companion;
 public sealed record RecentClip(string Time, string Chars, string Result);
 
 /// <summary>
-/// The tray panel (SPEC 6.7): link badge, 01 / PAIRING while unpaired or pairing, 02 / RECENT,
+/// The tray panel: link badge, 01 / PAIRING while unpaired or pairing, 02 / RECENT,
 /// 03 / SETTINGS. Opens above the tray and hides when it loses focus, except during a pairing.
 /// </summary>
 public partial class PanelWindow : Window
@@ -101,7 +101,7 @@ public partial class PanelWindow : Window
 
     /// <summary>
     /// The phone's own "Pair" prompt is the confirmation. iOS 27 shows no code there, so the panel
-    /// shows none either (M2, decision log).
+    /// shows none either.
     /// </summary>
     private void OnPairProgress(string step)
     {

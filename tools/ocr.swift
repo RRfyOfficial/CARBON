@@ -1,6 +1,6 @@
 #!/usr/bin/env swift
 // CARBON M0: Apple Vision OCR accuracy (CER) over a folder of fixture photos.
-// Implements SPEC 8.4 "Reader v1" (Vision settings + reading order) and SPEC 8.3 (CER).
+// Implements Reader v1 (Vision settings + reading order) and the character error rate (CER).
 // Usage: swift ocr.swift <folder> [--truth <file> | --truth-dir <dir>] [--deskew] [--rotate <deg> | --level]
 //        [--out <dir>] [--show]
 // --upright decodes the photo with its orientation already applied, so Vision gets upright pixels and
@@ -260,7 +260,7 @@ func processImage(_ url: URL, truth: String?, setup: Setup) async throws -> Imag
         fileOrientation: fileOrientation)
 }
 
-// MARK: - Reading order (SPEC 8.4)
+// MARK: - Reading order
 
 func readingOrderText(_ lines: [Line]) -> String {
     let sorted = lines.sorted { ($0.box.minY, $0.box.minX) < ($1.box.minY, $1.box.minX) }
@@ -305,7 +305,7 @@ func trimmingTrailingWhitespace(_ s: String) -> String {
     return String(result)
 }
 
-// MARK: - CER (SPEC 8.3)
+// MARK: - CER
 
 func collapseWhitespace(_ s: String) -> String {
     s.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")

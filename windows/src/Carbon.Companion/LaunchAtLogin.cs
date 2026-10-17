@@ -3,7 +3,7 @@ using Microsoft.Win32;
 namespace Carbon.Companion;
 
 /// <summary>
-/// The HKCU Run entry (SPEC 10). Development builds (running from bin\) never register, so trying
+/// The HKCU Run entry. Development builds (running from bin\) never register, so trying
 /// the companion from source doesn't leave a startup entry pointing into the repo.
 /// </summary>
 public static class LaunchAtLogin

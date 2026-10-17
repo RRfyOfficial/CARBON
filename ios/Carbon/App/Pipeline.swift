@@ -1,4 +1,4 @@
-// The scan pipeline (SPEC 8.1): Trigger → Capture → Reader → Formatter → Target. Each stage is a
+// The scan pipeline: Trigger → Capture → Reader → Formatter → Target. Each stage is a
 // socket, so a later upgrade (a document reader, another target) is a one-line swap here.
 
 import Foundation
@@ -95,7 +95,7 @@ final class Pipeline {
         return (delivery, pending ? true : nil)
     }
 
-    /// Debug "Keep captures" (SPEC 3 rule 7): off by default; photos are otherwise never stored.
+    /// Debug "Keep captures": off by default; photos are otherwise never stored.
     private func save(_ photo: Data) {
         let dir = URL.documentsDirectory.appending(path: "captures", directoryHint: .isDirectory)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

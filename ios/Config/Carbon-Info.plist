@@ -20,7 +20,7 @@
 	</array>
 
 	<!-- Meta Wearables Device Access Toolkit. MetaAppID and ClientToken stay empty:
-	     Developer Mode skips attestation (SPEC 11.5) -->
+	     Developer Mode skips attestation -->
 	<key>MWDAT</key>
 	<dict>
 		<key>AppLinkURLScheme</key>

@@ -11,7 +11,7 @@ public enum PasteOutcome
 }
 
 /// <summary>
-/// SPEC 10, autopaste: wait 60 ms after the clipboard is set, wait up to 300 ms for physically held
+/// Autopaste: wait 60 ms after the clipboard is set, wait up to 300 ms for physically held
 /// modifiers to be released, then send Ctrl+V with SendInput. Reports Blocked instead when the
 /// foreground window is elevated and the companion isn't (Windows silently blocks that input).
 /// </summary>

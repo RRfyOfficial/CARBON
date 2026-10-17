@@ -1,7 +1,7 @@
-// Pre-rendered glasses images (SPEC 7.4), drawn in the app with the bundled Tactura fonts rather than
+// Pre-rendered glasses images, drawn in the app with the bundled Tactura fonts rather than
 // by tools/render_assets.py: the fonts are already here, nothing is hosted, and Image(image:) embeds
 // the picture in the screen (M0 U6). Black is see-through on the additive display, and signal red
-// appears only inside these images (SPEC 7.3). Both stay far below the 600 × 600 frame.
+// appears only inside these images. Both stay far below the 600 × 600 frame.
 
 import UIKit
 

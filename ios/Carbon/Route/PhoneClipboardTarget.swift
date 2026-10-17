@@ -1,4 +1,4 @@
-// The Target socket (SPEC 8.1) and the phone target. iOS drops clipboard writes from the
+// The Target socket and the phone target. iOS drops clipboard writes from the
 // background (M0 U5), so a scan that finishes while CARBON isn't on screen waits for the app to open.
 
 import UIKit

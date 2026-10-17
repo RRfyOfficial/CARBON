@@ -6,14 +6,14 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <!-- Only for the tray NotifyIcon (SPEC 10). -->
+    <!-- Only for the tray NotifyIcon. -->
     <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>CARBON Companion</AssemblyName>
     <RootNamespace>Carbon.Companion</RootNamespace>
     <Version>0.1.0</Version>
     <!-- The dot-matrix C at 16-256 px, written by assets/brand/make_dot_icon.py. -->
     <ApplicationIcon>Assets\carbon.ico</ApplicationIcon>
-    <!-- Single-file publish (SPEC 10): WPF's native libraries have to come along inside the exe. -->
+    <!-- Single-file publish: WPF's native libraries have to come along inside the exe. -->
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <!-- About 180 MB uncompressed; compression costs a little start-up time. -->
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>

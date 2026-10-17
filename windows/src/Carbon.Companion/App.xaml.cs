@@ -6,7 +6,7 @@ using Carbon.Output;
 namespace Carbon.Companion;
 
 /// <summary>
-/// CARBON Companion (SPEC 6.7, 10): a tray app that holds the Bluetooth link to the paired phone,
+/// CARBON Companion: a tray app that holds the Bluetooth link to the paired phone,
 /// puts each clip on the clipboard (and pastes it when asked and allowed), acks it, and shows a toast.
 /// One instance per user.
 /// </summary>

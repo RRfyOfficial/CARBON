@@ -1,4 +1,4 @@
-// Reader v1, As-is (SPEC 8.4): Apple Vision RecognizeTextRequest, on-device and free.
+// Reader v1, As-is: Apple Vision RecognizeTextRequest, on-device and free.
 
 import CoreGraphics
 import Foundation

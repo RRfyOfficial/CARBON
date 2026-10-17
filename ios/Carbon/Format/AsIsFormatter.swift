@@ -1,4 +1,4 @@
-// The Formatter socket (SPEC 8.1) and its v1 implementation, As-is (SPEC 8.5).
+// The Formatter socket and its v1 implementation, As-is.
 
 import Foundation
 

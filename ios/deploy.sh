@@ -16,7 +16,8 @@
 # Mac, the Tailscale app on the iPhone, both in the same tailnet, with MagicDNS and HTTPS
 # certificates turned on for the tailnet. It builds the same signed app, serves it over HTTPS
 # inside the tailnet only, and prints a page to open in Safari on the phone: tap INSTALL there.
-# It stops serving when you press Enter, or after CARBON_OTA_MINUTES (default 15).
+# It stops serving by itself about a minute after the phone has downloaded the build
+# (CARBON_OTA_GRACE, in seconds), when you press Enter, or after CARBON_OTA_MINUTES (default 15).
 # The phone must already be registered with your Apple ID (one normal deploy does that).
 #
 # Building on the Mac you sit at? Just press Run in Xcode instead (README, Build it yourself).
@@ -119,12 +120,13 @@ cleanup() {
 }
 
 install_remote() {
-  local sha bundle_id version expires port minutes log deadline seen_manifest seen_ipa
+  local sha bundle_id version expires port minutes grace log deadline seen_manifest seen_ipa done_at
   sha="$(git rev-parse --short HEAD)"
   bundle_id="$(plist_value CFBundleIdentifier "$APP/Info.plist")"
   version="$(plist_value CFBundleShortVersionString "$APP/Info.plist")"
   port="${CARBON_OTA_PORT:-8765}"
   minutes="${CARBON_OTA_MINUTES:-15}"
+  grace="${CARBON_OTA_GRACE:-60}"
 
   trap cleanup EXIT
   trap 'exit 130' INT TERM HUP
@@ -232,6 +234,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         super().end_headers()
 
+    def do_GET(self):
+        super().do_GET()
+        # Reached only once the whole .ipa has been handed to the network: a dropped download
+        # raises inside super().do_GET(). The last bytes can still be in flight, hence the grace period.
+        if self.path.startswith("/Carbon-") and self.path.endswith(".ipa"):
+            sys.stderr.write("DOWNLOAD-COMPLETE %s\n" % self.path)
+            sys.stderr.flush()
+
 
 port, folder = int(sys.argv[1]), sys.argv[2]
 handler = functools.partial(Handler, directory=folder)
@@ -259,11 +269,12 @@ PY
   say ""
   say "    https://$HOST/"
   say ""
-  say "Serving for up to $minutes min. Press Enter here once CARBON has installed."
+  say "Serving for up to $minutes min. It stops by itself after the download, or press Enter."
 
   deadline=$((SECONDS + minutes * 60))
   seen_manifest=0
   seen_ipa=0
+  done_at=""
   while [ "$SECONDS" -lt "$deadline" ]; do
     if [ "$seen_manifest" = 0 ] && grep -q "GET /manifest-" "$log"; then
       say "The phone asked for the build..."
@@ -273,6 +284,13 @@ PY
       say "The phone is downloading it. Watch the CARBON icon on the home screen."
       seen_ipa=1
     fi
+    if [ -z "$done_at" ] && grep -q "DOWNLOAD-COMPLETE" "$log"; then
+      say "Download finished. Stopping in $grace s while iOS installs it (Enter stops now)."
+      done_at=$SECONDS
+    fi
+    if [ -n "$done_at" ] && [ $((SECONDS - done_at)) -ge "$grace" ]; then
+      break
+    fi
     if [ -t 0 ]; then
       if read -r -t 2 _; then break; fi
     else
@@ -280,8 +298,10 @@ PY
     fi
   done
 
-  if [ "$seen_ipa" = 1 ]; then
-    say "Stopped serving. Open CARBON on the phone to check it."
+  if [ -n "$done_at" ]; then
+    say "Stopped serving. The phone has the build: open CARBON to check it."
+  elif [ "$seen_ipa" = 1 ]; then
+    say "Stopped serving. The download started but didn't finish. If CARBON didn't update, run this again."
   else
     say "Stopped serving. The phone never downloaded the build."
   fi
